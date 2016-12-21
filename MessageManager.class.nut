@@ -8,9 +8,6 @@ const MM_DEFAULT_DEBUG                = 0
 const MM_DEFAULT_MSG_TIMEOUT          = 5 // sec
 const MM_DEFAULT_QUEUE_CHECK_INTERVAL = 0.1 // sec
 
-// Keep it zero for now to make sure messages are being retried on every queue iteration.
-const MM_DEFAULT_RETRY_INTERVAL       = 0
-
 // Message types
 const MM_MESSAGE_NAME_DATA    = "MM_DATA"
 const MM_MESSAGE_NAME_REPLY   = "MM_REPLY"
@@ -55,10 +52,6 @@ class MessageManager {
 
     // Is debug mode enabled
     _debug = null
-
-    // Message retry interval. We try to sesend message after
-    // it sits in the retry queue for this amount of time.
-    _retryInterval = null
 
     // ConnectionManager instance (for device only). 
     // Optional parameter for MessageManager
@@ -188,7 +181,6 @@ class MessageManager {
         // Read configuration
         _debug         = "debug"         in config ? config["debug"]         : MM_DEFAULT_DEBUG
         _msgTimeout    = "msgTimeout"    in config ? config["msgTimeout"]    : MM_DEFAULT_MSG_TIMEOUT
-        _retryInterval = "retryInterval" in config ? config["retryInterval"] : MM_DEFAULT_RETRY_INTERVAL
     }
 
     // Sends data message
