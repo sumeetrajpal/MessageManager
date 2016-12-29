@@ -16,8 +16,9 @@ const MM_MESSAGE_NAME_NACK    = "MM_NACK"
 
 // Error messages
 // TODO: not sure if we want to define it here though
-const MM_ERR_TIMEOUT          = "Message timeout"
-const MM_ERR_NO_HANDLER       = "No handler"
+const MM_ERR_TIMEOUT          = "Message timeout error"
+const MM_ERR_NO_HANDLER       = "No handler error"
+const MM_ERR_NO_CONNECTION    = "No connection error"
 
 class MessageManager {
 
@@ -40,6 +41,9 @@ class MessageManager {
 
     // Handler to be called before the message is being retried
     _beforeRetry = null
+
+    // Handler to be called on error when trying to resend the message
+    _onRetryError = null
 
     // The device or agent object
     _partner = null  
@@ -234,6 +238,10 @@ class MessageManager {
         _beforeRetry = handler
     }
 
+    function onRetryError(handler) {
+        _onRetryError = handler
+    }
+
     // Sets the handler, which will be called when a message with the specified
     // name is received
     //
@@ -321,19 +329,9 @@ class MessageManager {
         foreach (id, msg in _sentQueue) {
             local timeout = msg.timeout ? msg.timeout : _msgTimeout
             if (curTime - msg.payload["sent"] > timeout) {
-                local onErr = msg.errHandler
-                if (_isFunc(onErr)) {
-                    onErr(msg, MM_ERR_TIMEOUT, function () {
-                        _enqueue(msg)
-                    })
-                }
+                _callOnErr(msg, MM_ERR_TIMEOUT);
                 delete _sentQueue[id]
             }
-        }
-
-        // There is nothing to do when disconnected
-        if (!_isConnected()) {
-            return
         }
 
         // Process retry message queue
@@ -387,11 +385,11 @@ class MessageManager {
         } else {
             // Presumably there is a connectivity issue, 
             // enqueue for further retry
-            _enqueue(msg)
+            _callOnErr(msg, MM_ERR_NO_CONNECTION)
         }
     }
 
-    // Retries to send the message, and executes the beforeRerty timer
+    // Retries to send the message, and executes the beforeRerty handler
     //
     // Parameters:          Message to be resent
     //
@@ -403,7 +401,6 @@ class MessageManager {
         local payload = msg.payload
 
         delete _retryQueue[payload["id"]]
-
         if (_isFunc(_beforeRetry)) {
             _beforeRetry(msg, function/*dispose*/() {
                 // User requests to dispose the message, so drop it on the floor
@@ -504,6 +501,23 @@ class MessageManager {
         }
     }
 
+    // Calls an error handler if set for the message
+    // with the error specified
+    //
+    // Parameters:
+    //      msg             The message that triggered the error
+    //      error           The error message
+    //
+    // Returns:             Nothing
+    function _callOnErr(msg, error) {
+        local onErr = msg.errHandler
+        if (_isFunc(onErr)) {
+            onErr(error, function/*enqueue*/ () {
+                _enqueue(msg)
+            })
+        }
+    }
+
     // A handler for message nack events
     //
     // Parameters:          Payload containing id of the message that failed to be acknowledged
@@ -512,14 +526,7 @@ class MessageManager {
     function _onNack(payload) {
         local id = payload["id"]
         if (id in _sentQueue) {
-            local msg = _sentQueue[id]
-            local onErr = msg.errHandler
-
-            if (_isFunc(onEr)) {
-                onErr(MM_ERR_NO_HANDLER, function () {
-                    _enqueue(msg)
-                })
-            }
+            _callOnErr(_sentQueue[id], MM_ERR_NO_HANDLER)
         }
     }
 

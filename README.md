@@ -6,7 +6,7 @@ function issues of it's predecessor.
 
 ## Some MessageManager Features
 
-- Optimized usage of system timers;
+- Optimized system timers utilization
 - Optimized traffic used for service messages (replies and acknowledgements);
 - Connection awareness (leveraging ConnectionManager) and device/agent.send status 
 to avoid useless operations when there is no connection with the corresponding party;
