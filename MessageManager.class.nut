@@ -70,20 +70,23 @@ class MessageManager {
         // Message payload to be sent
         payload = null
 
-        // Error handler
-        errHandler = null
-
-        // Acknowledgement handler
-        ackHandler = null
-
-        // Reply handler
-        replyHandler = null
-
-        // Individual message timeout
-        timeout = null
-
         // Message metadata that can be used for application specific purposes
         metadata = null
+
+        // Error handler
+        _errHandler = null
+
+        // Acknowledgement handler
+        _ackHandler = null
+
+        // Reply handler
+        _replyHandler = null
+
+        // Individual message timeout
+        _timeout = null
+
+        // Message sent time
+        _sent = null
 
         // Data message constructor
         // Constructor is not going to be called from the user code
@@ -101,10 +104,9 @@ class MessageManager {
                 "type": MM_MESSAGE_NAME_DATA,
                 "name": name,
                 "data": data,
-                "sent": null,
                 "created": time()
             }
-            this.timeout = timeout
+            this._timeout = timeout
             this.metadata = {}
         }
 
@@ -121,7 +123,7 @@ class MessageManager {
         //
         // Returns:             Data message object
         function onError(handler) {
-            errHandler = handler
+            _errHandler = handler
             return this
         }
 
@@ -136,7 +138,7 @@ class MessageManager {
         //
         // Returns:             Data message object
         function onAcked(handler) {
-            ackHandler = handler
+            _ackHandler = handler
             return this
         }
 
@@ -151,7 +153,7 @@ class MessageManager {
         //
         // Returns:             Data message object
         function onReply(handler) {
-            replyHandler = handler
+            _replyHandler = handler
             return this
         }
     }
@@ -197,12 +199,7 @@ class MessageManager {
     // Returns:             The data message object created
     function send(name, data, timeout=null) {
         local msg = _DataMessage(_getNextId(), name, data, timeout)
-        if (!_isConnected()) {
-            _enqueue(msg)
-        } else {
-            _send(msg)
-        }
-        return msg
+        return _send(msg)
     }
 
     // Sets the handler which will be called before a message is sent
@@ -327,8 +324,8 @@ class MessageManager {
         // Process timed out messages from the sent (waiting for ack) queue
         local curTime = time()
         foreach (id, msg in _sentQueue) {
-            local timeout = msg.timeout ? msg.timeout : _msgTimeout
-            if (curTime - msg.payload["sent"] > timeout) {
+            local timeout = msg._timeout ? msg._timeout : _msgTimeout
+            if (curTime - msg._sent > timeout) {
                 _callOnErr(msg, MM_ERR_TIMEOUT);
                 delete _sentQueue[id]
             }
@@ -368,17 +365,14 @@ class MessageManager {
     //
     // Parameters:          Message to be sent
     //
-    // Returns:             Nothing
+    // Returns:             The message
     function _sendMessage(msg) {
         _log("Sending: " + msg.payload.data)
         local payload = msg.payload
-
-        local status = _partner.send(MM_MESSAGE_NAME_DATA, payload)
-
-        if (!status) {
+        if (_isConnected() && !_partner.send(MM_MESSAGE_NAME_DATA, payload)) {
             // The message was successfully sent
-            // Update the "sent" time
-            payload["sent"] <- time()
+            // Update the sent time
+            msg._sent = time()
             _sentQueue[payload["id"]] <- msg
             // Make sure the timer is running
             _startTimer()
@@ -387,6 +381,7 @@ class MessageManager {
             // enqueue for further retry
             _callOnErr(msg, MM_ERR_NO_CONNECTION)
         }
+        return msg
     }
 
     // Retries to send the message, and executes the beforeRerty handler
@@ -490,7 +485,7 @@ class MessageManager {
         local id = payload["id"]
         if (id in _sentQueue) {
             local msg = _sentQueue[id]
-            local onAcked = msg.ackHandler
+            local onAcked = msg._ackHandler
 
             if (_isFunc(onAcked)) {
                 onAcked(msg)
@@ -510,9 +505,9 @@ class MessageManager {
     //
     // Returns:             Nothing
     function _callOnErr(msg, error) {
-        local onErr = msg.errHandler
+        local onErr = msg._errHandler
         if (_isFunc(onErr)) {
-            onErr(error, function/*enqueue*/ () {
+            onErr(msg, error, function/*enqueue*/ () {
                 _enqueue(msg)
             })
         }
@@ -539,7 +534,7 @@ class MessageManager {
         local id = payload["id"]
         if (id in _sentQueue) {
             local msg = _sentQueue[id]
-            local onReply = msg.replyHandler
+            local onReply = msg._replyHandler
 
             if (_isFunc(onReply)) {
                 onReply(msg, payload["data"])
