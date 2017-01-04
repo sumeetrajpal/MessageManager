@@ -33,18 +33,6 @@ class MessageManager {
     // Current message id
     _nextId = null
 
-    // Handler to be called on a message received 
-    _on = null
-
-    // Handler to be called right before a message is sent
-    _beforeSend = null
-
-    // Handler to be called before the message is being retried
-    _beforeRetry = null
-
-    // Handler to be called on error when trying to resend the message
-    _onRetryError = null
-
     // The device or agent object
     _partner = null  
 
@@ -61,6 +49,27 @@ class MessageManager {
     // Optional parameter for MessageManager
     _cm = null
 
+    // Handler to be called on a message received
+    _on = null
+
+    // Handler to be called right before a message is sent
+    _beforeSend = null
+
+    // Handler to be called before the message is being retried
+    _beforeRetry = null
+
+    // Handler to be called on error when trying to resend the message
+    _onRetryError = null
+
+    // Error handler
+    _onError = null
+
+    // Acknowledgement handler
+    _onAck = null
+
+    // Reply handler
+    _onReply = null
+
     // Data message class definition. Any message being sent by the user
     // is considered to be data message.
     //
@@ -72,15 +81,6 @@ class MessageManager {
 
         // Message metadata that can be used for application specific purposes
         metadata = null
-
-        // Error handler
-        _errHandler = null
-
-        // Acknowledgement handler
-        _ackHandler = null
-
-        // Reply handler
-        _replyHandler = null
 
         // Individual message timeout
         _timeout = null
@@ -109,53 +109,6 @@ class MessageManager {
             this._timeout = timeout
             this.metadata = {}
         }
-
-        // Sets the error handler to be called when 
-        // an error while sending the message occurs
-        //
-        // Parameters:
-        //      handler         The handler to be called. It has signature:
-        //                      handler(message, reason, retry)
-        //                      Paremeters:
-        //                          message         The message that received an error
-        //                          reason          The error reason details
-        //                          retry           The function to be called
-        //
-        // Returns:             Data message object
-        function onError(handler) {
-            _errHandler = handler
-            return this
-        }
-
-        // Sets the acknowledgement handler to be called
-        // when a message is acked by the corresponding party
-        //
-        // Parameters:
-        //      handler         The handler to be called. It has signature:
-        //                      handler(message)
-        //                      Paremeters:
-        //                          message         The message that was acked
-        //
-        // Returns:             Data message object
-        function onAcked(handler) {
-            _ackHandler = handler
-            return this
-        }
-
-        // Sets the acknowledgement handler to be called
-        // when a message is acked by the corresponding party
-        //
-        // Parameters:
-        //      handler         The handler to be called. It has signature:
-        //                      handler(message, response), where
-        //                          message         The message that was replied to
-        //                          response        Response received as reply
-        //
-        // Returns:             Data message object
-        function onReply(handler) {
-            _replyHandler = handler
-            return this
-        }
     }
 
     // MessageManager constructor
@@ -179,10 +132,10 @@ class MessageManager {
 
         // Partner initialization
         _partner = _isAgent() ? device : agent;
-        _partner.on(MM_MESSAGE_NAME_ACK, _onAck.bindenv(this))
-        _partner.on(MM_MESSAGE_NAME_DATA, _onData.bindenv(this))
-        _partner.on(MM_MESSAGE_NAME_NACK, _onNack.bindenv(this))
-        _partner.on(MM_MESSAGE_NAME_REPLY, _onReply.bindenv(this))
+        _partner.on(MM_MESSAGE_NAME_ACK, _onAckReceived.bindenv(this))
+        _partner.on(MM_MESSAGE_NAME_DATA, _onDataReceived.bindenv(this))
+        _partner.on(MM_MESSAGE_NAME_NACK, _onNackReceived.bindenv(this))
+        _partner.on(MM_MESSAGE_NAME_REPLY, _onReplyReceived.bindenv(this))
 
         // Read configuration
         _debug         = "debug"         in config ? config["debug"]         : MM_DEFAULT_DEBUG
@@ -274,6 +227,50 @@ class MessageManager {
         return _retryQueue.len()
     }
 
+    // Sets the error handler to be called when
+    // an error while sending the message occurs
+    //
+    // Parameters:
+    //      handler         The handler to be called. It has signature:
+    //                      handler(message, reason, retry)
+    //                      Paremeters:
+    //                          message         The message that received an error
+    //                          reason          The error reason details
+    //                          retry           The function to be called
+    //
+    // Returns:             Nothing
+    function onError(handler) {
+        _onError = handler
+    }
+
+    // Sets the acknowledgement handler to be called
+    // when a message is acked by the corresponding party
+    //
+    // Parameters:
+    //      handler         The handler to be called. It has signature:
+    //                      handler(message)
+    //                      Paremeters:
+    //                          message         The message that was acked
+    //
+    // Returns:             Nothing
+    function onAcked(handler) {
+        _onAck = handler
+    }
+
+    // Sets the acknowledgement handler to be called
+    // when a message is acked by the corresponding party
+    //
+    // Parameters:
+    //      handler         The handler to be called. It has signature:
+    //                      handler(message, response), where
+    //                          message         The message that was replied to
+    //                          response        Response received as reply
+    //
+    // Returns:             Nothing
+    function onReply(handler) {
+        _onReply = handler
+    }
+
     // Enqueues the message
     //
     // Parameters:
@@ -308,6 +305,7 @@ class MessageManager {
         } else {
             connected = _cm ? _cm.isConnected() : server.isconnected()
         }
+        _log("_isConnected returns: " + connected);
         return connected
     }
 
@@ -365,9 +363,9 @@ class MessageManager {
     //
     // Parameters:          Message to be sent
     //
-    // Returns:             The message
+    // Returns:             Nothing
     function _sendMessage(msg) {
-        _log("Sending: " + msg.payload.data)
+        _log("Making attempt to send: " + msg.payload.data)
         local payload = msg.payload
         if (_isConnected() && !_partner.send(MM_MESSAGE_NAME_DATA, payload)) {
             // The message was successfully sent
@@ -377,11 +375,11 @@ class MessageManager {
             // Make sure the timer is running
             _startTimer()
         } else {
+            _log("Oops, no connection");
             // Presumably there is a connectivity issue, 
             // enqueue for further retry
             _callOnErr(msg, MM_ERR_NO_CONNECTION)
         }
-        return msg
     }
 
     // Retries to send the message, and executes the beforeRerty handler
@@ -412,7 +410,7 @@ class MessageManager {
     //
     // Parameters:          Message to be resent
     //
-    // Returns:             Nothing
+    // Returns:             The message
     function _send(msg) {
         local send = true
         if (_isFunc(_beforeSend)) {
@@ -425,6 +423,7 @@ class MessageManager {
         if (send) {
             _sendMessage(msg)
         }
+        return msg
     }
 
     // A handler for message received (agent/device.on) events
@@ -432,7 +431,7 @@ class MessageManager {
     // Parameters:          Message payload received
     //
     // Returns:             Nothing
-    function _onData(payload) {
+    function _onDataReceived(payload) {
 
         // Call the on callback
         local name = payload["name"]
@@ -481,14 +480,13 @@ class MessageManager {
     // Parameters:          Acknowledgement message containing original message id
     //
     // Returns:             Nothing
-    function _onAck(payload) {
+    function _onAckReceived(payload) {
         local id = payload["id"]
         if (id in _sentQueue) {
             local msg = _sentQueue[id]
-            local onAcked = msg._ackHandler
 
-            if (_isFunc(onAcked)) {
-                onAcked(msg)
+            if (_isFunc(_onAck)) {
+                _onAck(msg)
             }
 
             // Delete the acked message from the queue
@@ -505,9 +503,8 @@ class MessageManager {
     //
     // Returns:             Nothing
     function _callOnErr(msg, error) {
-        local onErr = msg._errHandler
-        if (_isFunc(onErr)) {
-            onErr(msg, error, function/*enqueue*/ () {
+        if (_isFunc(_onError)) {
+            _onError(msg, error, function/*enqueue*/ () {
                 _enqueue(msg)
             })
         }
@@ -518,7 +515,7 @@ class MessageManager {
     // Parameters:          Payload containing id of the message that failed to be acknowledged
     //
     // Returns:             Nothing
-    function _onNack(payload) {
+    function _onNackReceived(payload) {
         local id = payload["id"]
         if (id in _sentQueue) {
             _callOnErr(_sentQueue[id], MM_ERR_NO_HANDLER)
@@ -530,14 +527,13 @@ class MessageManager {
     // Parameters:          Payload containing id and response data for reply
     //
     // Returns:             Nothing
-    function _onReply(payload) {
+    function _onReplyReceived(payload) {
         local id = payload["id"]
         if (id in _sentQueue) {
             local msg = _sentQueue[id]
-            local onReply = msg._replyHandler
 
-            if (_isFunc(onReply)) {
-                onReply(msg, payload["data"])
+            if (_isFunc(_onReply)) {
+                _onReply(msg, payload["data"])
             }
 
             delete _sentQueue[id]
