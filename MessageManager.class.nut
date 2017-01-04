@@ -4,9 +4,12 @@
 
 // Default configuration values
 // TODO: revise the values once again
-const MM_DEFAULT_DEBUG                = 0
-const MM_DEFAULT_MSG_TIMEOUT          = 5 // sec
-const MM_DEFAULT_QUEUE_CHECK_INTERVAL = 0.1 // sec
+const MM_DEFAULT_DEBUG                  = 0
+const MM_DEFAULT_QUEUE_CHECK_INTERVAL   = 0.5 // sec
+const MM_DEFAULT_MSG_TIMEOUT            = 10  // sec
+const MM_DEFAULT_RETRY_INTERVAL         = 10  // sec
+const MM_DEFAULT_AUTO_RETRY             = 0
+const MM_DEFAULT_MAX_AUTO_RETRIES       = 0
 
 // Message types
 const MM_MESSAGE_NAME_DATA    = "MM_DATA"
@@ -70,6 +73,15 @@ class MessageManager {
     // Reply handler
     _onReply = null
 
+    // Retry interval
+    _retryInterval = null
+
+    // Flag indicating if the autoretry is enabled or not
+    _autoRetry = null
+
+    // Max number of auto retries
+    _maxAutoRetries = null
+
     // Data message class definition. Any message being sent by the user
     // is considered to be data message.
     //
@@ -82,11 +94,17 @@ class MessageManager {
         // Message metadata that can be used for application specific purposes
         metadata = null
 
+        // Number of attempts to send the message
+        tries = null
+
         // Individual message timeout
         _timeout = null
 
         // Message sent time
         _sent = null
+
+        // Time of the next retry
+        _nextRetry = null
 
         // Data message constructor
         // Constructor is not going to be called from the user code
@@ -106,8 +124,10 @@ class MessageManager {
                 "data": data,
                 "created": time()
             }
-            this._timeout = timeout
-            this.metadata = {}
+            tries = 0
+            metadata = {}
+            _timeout = timeout
+            _nextRetry = 0
         }
     }
 
@@ -138,8 +158,11 @@ class MessageManager {
         _partner.on(MM_MESSAGE_NAME_REPLY, _onReplyReceived.bindenv(this))
 
         // Read configuration
-        _debug         = "debug"         in config ? config["debug"]         : MM_DEFAULT_DEBUG
-        _msgTimeout    = "msgTimeout"    in config ? config["msgTimeout"]    : MM_DEFAULT_MSG_TIMEOUT
+        _debug          = "debug"          in config ? config["debug"]          : MM_DEFAULT_DEBUG
+        _msgTimeout     = "msgTimeout"     in config ? config["msgTimeout"]     : MM_DEFAULT_MSG_TIMEOUT
+        _retryInterval  = "retryInterval"  in config ? config["retryInterval"]  : MM_DEFAULT_RETRY_INTERVAL
+        _autoRetry      = "autoRetry"      in config ? config["autoRetry"]      : MM_DEFAULT_AUTO_RETRY
+        _maxAutoRetries = "maxAutoRetries" in config ? config["maxAutoRetries"] : MM_DEFAULT_MAX_AUTO_RETRIES
     }
 
     // Sends data message
@@ -179,6 +202,8 @@ class MessageManager {
     //      handler         The handler to be called before retry. The handler's signature:
     //                          handler(message, dispose), where
     //                              message         The message that was replied to
+    //                              skip            Skip retry attempt and leave the message
+    //                                              in the retry queue for now
     //                              dispose         The function that makes the message
     //                                              permanently removed from the retry queue
     //                                              dispose() has ho arguments
@@ -263,7 +288,7 @@ class MessageManager {
     // Parameters:
     //      handler         The handler to be called. It has signature:
     //                      handler(message, response), where
-    //                          message         The message that was replied to
+    //                          message         The message that received a reply
     //                          response        Response received as reply
     //
     // Returns:             Nothing
@@ -315,15 +340,15 @@ class MessageManager {
     // Parameters:    
     //
     // Returns:             Nothing
-    function _checkQueues() {
+    function _processQueues() {
         // Clean up the timer
         _queueTimer = null
 
         // Process timed out messages from the sent (waiting for ack) queue
-        local curTime = time()
+        local t = time()
         foreach (id, msg in _sentQueue) {
             local timeout = msg._timeout ? msg._timeout : _msgTimeout
-            if (curTime - msg._sent > timeout) {
+            if (t - msg._sent > timeout) {
                 _callOnErr(msg, MM_ERR_TIMEOUT);
                 delete _sentQueue[id]
             }
@@ -331,12 +356,14 @@ class MessageManager {
 
         // Process retry message queue
         foreach (id, msg in _retryQueue) {
-            _retry(msg)
+            if (t >= msg._nextRetry) {
+                _retry(msg)
+            }
         }
     }
 
     // The sent and reply queues processor
-    // Handles timeouts, retries, etc.
+    // Handles timeouts, tries, etc.
     //
     // Parameters:    
     //
@@ -347,7 +374,7 @@ class MessageManager {
             return
         }
         _queueTimer = imp.wakeup(MM_DEFAULT_QUEUE_CHECK_INTERVAL, 
-                                _checkQueues.bindenv(this))
+                                _processQueues.bindenv(this))
     }
 
     // Returns true if the argument is function and false otherwise
@@ -382,7 +409,7 @@ class MessageManager {
         }
     }
 
-    // Retries to send the message, and executes the beforeRerty handler
+    // tries to send the message, and executes the beforeRerty handler
     //
     // Parameters:          Message to be resent
     //
@@ -393,15 +420,23 @@ class MessageManager {
         local send = true
         local payload = msg.payload
 
-        delete _retryQueue[payload["id"]]
         if (_isFunc(_beforeRetry)) {
-            _beforeRetry(msg, function/*dispose*/() {
-                // User requests to dispose the message, so drop it on the floor
-                send = false
-            })
+            _beforeRetry(msg,
+                function/*skip*/(interval = null) {
+                    msg._nextRetry = time() + (interval ? interval : _retryInterval)
+                    send = false
+                },
+                function/*dispose*/() {
+                    // User requests to dispose the message, so drop it on the floor
+                    delete _retryQueue[payload["id"]]
+                    send = false
+                }
+            )
         }
 
         if (send) {
+            msg.tries++
+            delete _retryQueue[payload["id"]]
             _sendMessage(msg)
         }
     }
@@ -504,9 +539,16 @@ class MessageManager {
     // Returns:             Nothing
     function _callOnErr(msg, error) {
         if (_isFunc(_onError)) {
-            _onError(msg, error, function/*enqueue*/ () {
+            _onError(msg, error, function/*retry*/(interval = null) {
+                msg._nextRetry = time() + (interval ? interval : _retryInterval)
                 _enqueue(msg)
             })
+        } else {
+            // Error handler is not set. Let's check the autoretry.
+            if (_autoRetry && (!_maxAutoRetries || msg.tries < _maxAutoRetries)) {
+                msg._nextRetry = time() + _retryInterval
+                _enqueue(msg)
+            }
         }
     }
 
