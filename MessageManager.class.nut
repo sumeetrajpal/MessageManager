@@ -25,7 +25,7 @@ const MM_ERR_NO_CONNECTION    = "No connection error"
 
 class MessageManager {
 
-    static version = [0, 0, 1];
+    static version = [0, 0, 2];
 
     // Queue of messages that are pending for acknowledgement
     _sentQueue = null
@@ -45,7 +45,7 @@ class MessageManager {
     // Message timeout
     _msgTimeout = null
 
-    // Is debug mode enabled
+    // The flag indicating that the debug mode enabled
     _debug = null
 
     // ConnectionManager instance (for device only). 
@@ -86,7 +86,7 @@ class MessageManager {
     // is considered to be data message.
     //
     // The class defines the data message structure and handlers.
-    _DataMessage = class {
+    DataMessage = class {
         
         // Message payload to be sent
         payload = null
@@ -159,8 +159,8 @@ class MessageManager {
 
         // Read configuration
         _debug          = "debug"          in config ? config["debug"]          : MM_DEFAULT_DEBUG
-        _msgTimeout     = "msgTimeout"     in config ? config["msgTimeout"]     : MM_DEFAULT_MSG_TIMEOUT
         _retryInterval  = "retryInterval"  in config ? config["retryInterval"]  : MM_DEFAULT_RETRY_INTERVAL
+        _msgTimeout     = "messageTimeout" in config ? config["messageTimeout"] : MM_DEFAULT_MSG_TIMEOUT
         _autoRetry      = "autoRetry"      in config ? config["autoRetry"]      : MM_DEFAULT_AUTO_RETRY
         _maxAutoRetries = "maxAutoRetries" in config ? config["maxAutoRetries"] : MM_DEFAULT_MAX_AUTO_RETRIES
     }
@@ -173,8 +173,8 @@ class MessageManager {
     //      timeout         Individual message timeout
     //
     // Returns:             The data message object created
-    function send(name, data, timeout=null) {
-        local msg = _DataMessage(_getNextId(), name, data, timeout)
+    function send(name, data=null, timeout=null) {
+        local msg = DataMessage(_getNextId(), name, data, timeout)
         return _send(msg)
     }
 
@@ -234,26 +234,7 @@ class MessageManager {
         _on[name] <- handler
     }
 
-    // Returns the size of the pending for ack queue
-    //
-    // Parameters:
-    //
-    // Returns:             The size of the pending for ack queue
-    function getSizeOfWaitingForAck() {
-        return _sentQueue.len()
-    }
-
-    // Returns the size of the retry queue
-    //
-    // Parameters:
-    //
-    // Returns:             The size of the retry queue
-    function getSizeOfRetry() {
-        return _retryQueue.len()
-    }
-
-    // Sets the error handler to be called when
-    // an error while sending the message occurs
+    // Sets the handler to be called when an error occurs
     //
     // Parameters:
     //      handler         The handler to be called. It has signature:
@@ -264,12 +245,11 @@ class MessageManager {
     //                          retry           The function to be called
     //
     // Returns:             Nothing
-    function onError(handler) {
+    function onFail(handler) {
         _onError = handler
     }
 
-    // Sets the acknowledgement handler to be called
-    // when a message is acked by the corresponding party
+    // Sets the handler to be called on the message acknowledgement
     //
     // Parameters:
     //      handler         The handler to be called. It has signature:
@@ -278,12 +258,11 @@ class MessageManager {
     //                          message         The message that was acked
     //
     // Returns:             Nothing
-    function onAcked(handler) {
+    function onAck(handler) {
         _onAck = handler
     }
 
-    // Sets the acknowledgement handler to be called
-    // when a message is acked by the corresponding party
+    // Sets the handler to be called when the message is replied
     //
     // Parameters:
     //      handler         The handler to be called. It has signature:
@@ -294,6 +273,16 @@ class MessageManager {
     // Returns:             Nothing
     function onReply(handler) {
         _onReply = handler
+    }
+
+    // Returns the overall number of pending messages
+    // (either waiting for acknowledgement or hanging in the retry queue)
+    //
+    // Parameters:
+    //
+    // Returns:             The number of all the pending messages
+    function getPendingCount() {
+        return _sentQueue.len() + _retryQueue.len()
     }
 
     // Enqueues the message
