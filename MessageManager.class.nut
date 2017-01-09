@@ -61,16 +61,16 @@ class MessageManager {
     // Handler to be called before the message is being retried
     _beforeRetry = null
 
-    // Handler to be called on error when trying to resend the message
+    // Handler to be called if an error occurred when retrying to resend the message
     _onRetryError = null
 
-    // Error handler
-    _onError = null
+    // Handler to be called when a message delivery failed
+    _onFail = null
 
-    // Acknowledgement handler
+    // Handler to be called when a message is acknowledged
     _onAck = null
 
-    // Reply handler
+    // Handler to be called when a message is replied
     _onReply = null
 
     // Retry interval
@@ -246,7 +246,7 @@ class MessageManager {
     //
     // Returns:             Nothing
     function onFail(handler) {
-        _onError = handler
+        _onFail = handler
     }
 
     // Sets the handler to be called on the message acknowledgement
@@ -527,8 +527,8 @@ class MessageManager {
     //
     // Returns:             Nothing
     function _callOnErr(msg, error) {
-        if (_isFunc(_onError)) {
-            _onError(msg, error, function/*retry*/(interval = null) {
+        if (_isFunc(_onFail)) {
+            _onFail(msg, error, function/*retry*/(interval = null) {
                 msg._nextRetry = time() + (interval ? interval : _retryInterval)
                 _enqueue(msg)
             })
