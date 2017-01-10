@@ -1,4 +1,4 @@
-// Copyright (c) 2016 Electric Imp
+// Copyright (c) 2016-2017 Electric Imp
 // This file is licensed under the MIT License
 // http://opensource.org/licenses/MIT
 
@@ -114,9 +114,10 @@ class MessageManager {
         //      name            Data message name
         //      data            The actual data being sent
         //      timeout         Individual message timeout
+        //      metadata        Data message metadata
         //
         // Returns:             Data message object created
-        function constructor(id, name, data, timeout) {
+        function constructor(id, name, data, timeout, metadata) {
             payload = {
                 "id": id,
                 "type": MM_MESSAGE_NAME_DATA,
@@ -124,10 +125,10 @@ class MessageManager {
                 "data": data,
                 "created": time()
             }
-            tries = 0
-            metadata = {}
-            _timeout = timeout
-            _nextRetry = 0
+            this.tries = 0
+            this.metadata = metadata
+            this._timeout = timeout
+            this._nextRetry = 0
         }
     }
 
@@ -171,10 +172,11 @@ class MessageManager {
     //      name            Name of the message to be sent
     //      data            Data to be sent
     //      timeout         Individual message timeout
+    //      metadata        Data message metadata
     //
     // Returns:             The data message object created
-    function send(name, data=null, timeout=null) {
-        local msg = DataMessage(_getNextId(), name, data, timeout)
+    function send(name, data = null, timeout = null, metadata = null) {
+        local msg = DataMessage(_getNextId(), name, data, timeout, metadata)
         return _send(msg)
     }
 
