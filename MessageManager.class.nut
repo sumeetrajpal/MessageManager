@@ -138,11 +138,10 @@ class MessageManager {
     //      config          Configuration of the message manager
     //
     // Returns:             MessageManager object created
-    function constructor(config = null, cm = null) {
+    function constructor(config = null) {
         if (!config) {
             config = {}
         }
-        _cm = cm
 
         _nextId = 0
         _sentQueue  = {}
@@ -159,11 +158,12 @@ class MessageManager {
         _partner.on(MM_MESSAGE_NAME_REPLY, _onReplyReceived.bindenv(this))
 
         // Read configuration
-        _debug          = "debug"          in config ? config["debug"]          : MM_DEFAULT_DEBUG
-        _retryInterval  = "retryInterval"  in config ? config["retryInterval"]  : MM_DEFAULT_RETRY_INTERVAL
-        _msgTimeout     = "messageTimeout" in config ? config["messageTimeout"] : MM_DEFAULT_MSG_TIMEOUT
-        _autoRetry      = "autoRetry"      in config ? config["autoRetry"]      : MM_DEFAULT_AUTO_RETRY
-        _maxAutoRetries = "maxAutoRetries" in config ? config["maxAutoRetries"] : MM_DEFAULT_MAX_AUTO_RETRIES
+        _cm             = "connectionManager" in config ? config["connectionManager"] : null
+        _debug          = "debug"             in config ? config["debug"]             : MM_DEFAULT_DEBUG
+        _retryInterval  = "retryInterval"     in config ? config["retryInterval"]     : MM_DEFAULT_RETRY_INTERVAL
+        _msgTimeout     = "messageTimeout"    in config ? config["messageTimeout"]    : MM_DEFAULT_MSG_TIMEOUT
+        _autoRetry      = "autoRetry"         in config ? config["autoRetry"]         : MM_DEFAULT_AUTO_RETRY
+        _maxAutoRetries = "maxAutoRetries"    in config ? config["maxAutoRetries"]    : MM_DEFAULT_MAX_AUTO_RETRIES
     }
 
     // Sends data message
