@@ -556,6 +556,7 @@ class MessageManager {
     }
 
     // A handler for message replies
+    // Calls both user provided onAck and onReply handlers
     //
     // Parameters:          Payload containing id and response data for reply
     //
@@ -564,6 +565,11 @@ class MessageManager {
         local id = payload["id"]
         if (id in _sentQueue) {
             local msg = _sentQueue[id]
+
+            // Make sure to call acknowledgement handler
+            if (_isFunc(_onAck)) {
+                _onAck(msg)
+            }
 
             if (_isFunc(_onReply)) {
                 _onReply(msg, payload["data"])
