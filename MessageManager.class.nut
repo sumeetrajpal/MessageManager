@@ -3,7 +3,6 @@
 // http://opensource.org/licenses/MIT
 
 // Default configuration values
-// TODO: revise the values once again
 const MM_DEFAULT_DEBUG                  = 0
 const MM_DEFAULT_QUEUE_CHECK_INTERVAL   = 0.5 // sec
 const MM_DEFAULT_MSG_TIMEOUT            = 10  // sec
@@ -18,7 +17,6 @@ const MM_MESSAGE_NAME_ACK     = "MM_ACK"
 const MM_MESSAGE_NAME_NACK    = "MM_NACK"
 
 // Error messages
-// TODO: not sure if we want to define it here though
 const MM_ERR_TIMEOUT          = "Message timeout error"
 const MM_ERR_NO_HANDLER       = "No handler error"
 const MM_ERR_NO_CONNECTION    = "No connection error"
@@ -61,16 +59,13 @@ class MessageManager {
     // Handler to be called before the message is being retried
     _beforeRetry = null
 
-    // Handler to be called if an error occurred when retrying to resend the message
-    _onRetryError = null
-
-    // Handler to be called when a message delivery failed
+    // Global handler to be called when a message delivery failed
     _onFail = null
 
-    // Handler to be called when a message is acknowledged
+    // Global handler to be called when a message is acknowledged
     _onAck = null
 
-    // Handler to be called when a message is replied
+    // Global handler to be called when a message is replied
     _onReply = null
 
     // Retry interval
@@ -106,6 +101,15 @@ class MessageManager {
         // Time of the next retry
         _nextRetry = null
 
+        // Handler to be called when the message delivery failed
+        _onFail = null
+
+        // Handler to be called when the message is acknowledged
+        _onAck = null
+
+        // Handler to be called when the message is replied
+        _onReply = null
+
         // Data message constructor
         // Constructor is not going to be called from the user code
         //
@@ -129,6 +133,47 @@ class MessageManager {
             this.metadata = metadata
             this._timeout = timeout
             this._nextRetry = 0
+        }
+
+        // Sets the message-local handler to be called when an error occurs
+        //
+        // Parameters:
+        //      handler         The handler to be called. It has signature:
+        //                      handler(message, reason, retry)
+        //                      Paremeters:
+        //                          message         The message that received an error
+        //                          reason          The error reason details
+        //                          retry           The function to be called
+        //
+        // Returns:             Nothing
+        function onFail(handler) {
+            _onFail = handler
+        }
+
+        // Sets the message-local handler to be called on the message acknowledgement
+        //
+        // Parameters:
+        //      handler         The handler to be called. It has signature:
+        //                      handler(message)
+        //                      Paremeters:
+        //                          message         The message that was acked
+        //
+        // Returns:             Nothing
+        function onAck(handler) {
+            _onAck = handler
+        }
+
+        // Sets the message-local handler to be called when the message is replied
+        //
+        // Parameters:
+        //      handler         The handler to be called. It has signature:
+        //                      handler(message, response), where
+        //                          message         The message that received a reply
+        //                          response        Response received as reply
+        //
+        // Returns:             Nothing
+        function onReply(handler) {
+            _onReply = handler
         }
     }
 
@@ -173,10 +218,22 @@ class MessageManager {
     //      data            Data to be sent
     //      timeout         Individual message timeout
     //      metadata        Data message metadata
+    //      handlers        onAck, onFail and onReply handlers for this message
+    //                         for more details, please see DataMessage
     //
     // Returns:             The data message object created
-    function send(name, data = null, timeout = null, metadata = null) {
+    function send(name, data = null, timeout = null, metadata = null, handlers = null) {
         local msg = DataMessage(_getNextId(), name, data, timeout, metadata)
+        // Process per-message handlers
+        if (handlers && handlers.len() > 0) {
+            local onAck   = "onAck"   in handlers ? handlers["onAck"]   : null
+            local onFail  = "onFail"  in handlers ? handlers["onFail"]  : null
+            local onReply = "onReply" in handlers ? handlers["onReply"] : null
+
+            onAck   && msg.onAck(onAck)
+            onFail  && msg.onFail(onFail)
+            onReply && msg.onReply(onReply)
+        }
         return _send(msg)
     }
 
@@ -184,12 +241,14 @@ class MessageManager {
     //
     // Parameters:
     //      handler         The handler to be called before send. The handler's signature:
-    //                          handler(message, enqueue), where
+    //                          handler(message, enqueue, dispose), where
     //                              message         The message to be sent
-    //                              enqueue         The function that makes the message
-    //                                              appended to the retry queue for
-    //                                              later processing
+    //                              enqueue         Callback which when called
+    //                                              makes the message appended to the
+    //                                              retry queue for later processing
     //                                              enqueue() has no arguments
+    //                              dispose         Callback which when called
+    //                                              disposes the message
     //
     // Returns:             Nothing
     function beforeSend(handler) {
@@ -213,10 +272,6 @@ class MessageManager {
     // Returns:             Nothing
     function beforeRetry(handler) {
         _beforeRetry = handler
-    }
-
-    function onRetryError(handler) {
-        _onRetryError = handler
     }
 
     // Sets the handler, which will be called when a message with the specified
@@ -440,10 +495,15 @@ class MessageManager {
     function _send(msg) {
         local send = true
         if (_isFunc(_beforeSend)) {
-            _beforeSend(msg, function/*enqueue*/() {
-                _enqueue(msg)
-                send = false                
-            })
+            _beforeSend(msg,
+                function/*enqueue*/() {
+                    _enqueue(msg)
+                    send = false
+                },
+                function/*dispose*/() {
+                    send = false
+                }
+            )
         }
 
         if (send) {
@@ -511,9 +571,8 @@ class MessageManager {
         if (id in _sentQueue) {
             local msg = _sentQueue[id]
 
-            if (_isFunc(_onAck)) {
-                _onAck(msg)
-            }
+            _isFunc(msg._onAck) && msg._onAck(msg)
+            _isFunc(_onAck) && _onAck(msg)
 
             // Delete the acked message from the queue
             delete _sentQueue[id]
@@ -529,12 +588,22 @@ class MessageManager {
     //
     // Returns:             Nothing
     function _callOnErr(msg, error) {
-        if (_isFunc(_onFail)) {
-            _onFail(msg, error, function/*retry*/(interval = null) {
-                msg._nextRetry = time() + (interval ? interval : _retryInterval)
-                _enqueue(msg)
-            })
-        } else {
+
+        local hasHandler = false
+        local checkAndCall = function(f) {
+            if (_isFunc(f)) {
+                hasHandler = true
+                f(msg, error, function/*retry*/(interval = null) {
+                    msg._nextRetry = time() + (interval ? interval : _retryInterval)
+                    _enqueue(msg)
+                })
+            }
+        }
+
+        checkAndCall(msg._onFail)
+        checkAndCall(_onFail)
+
+        if (!hasHandler) {
             // Error handler is not set. Let's check the autoretry.
             if (_autoRetry && (!_maxAutoRetries || msg.tries < _maxAutoRetries)) {
                 msg._nextRetry = time() + _retryInterval
@@ -566,14 +635,13 @@ class MessageManager {
         if (id in _sentQueue) {
             local msg = _sentQueue[id]
 
-            // Make sure to call acknowledgement handler
-            if (_isFunc(_onAck)) {
-                _onAck(msg)
-            }
+            // Make sure to call acknowledgement handlers first
+            _isFunc(msg._onAck) && msg._onAck(msg)
+            _isFunc(_onAck) && _onAck(msg)
 
-            if (_isFunc(_onReply)) {
-                _onReply(msg, payload["data"])
-            }
+            // Then call the global handlers
+            _isFunc(msg._onReply) && msg._onReply(msg, payload["data"])
+            _isFunc(_onReply) && _onReply(msg, payload["data"])
 
             delete _sentQueue[id]
         }
