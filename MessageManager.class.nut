@@ -530,7 +530,7 @@ class MessageManager {
             local handler = _on[name]
             if (_isFunc(handler)) {
                 handlerFound = true
-                handler(data, function/*reply*/(data = null) {
+                handler(payload, function/*reply*/(data = null) {
                     replied = true
                     error = _partner.send(MM_MESSAGE_NAME_REPLY, {
                         "id"   : payload["id"]
