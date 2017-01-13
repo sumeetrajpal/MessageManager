@@ -11,15 +11,16 @@ const MM_DEFAULT_AUTO_RETRY             = 0
 const MM_DEFAULT_MAX_AUTO_RETRIES       = 0
 
 // Message types
-const MM_MESSAGE_NAME_DATA    = "MM_DATA"
-const MM_MESSAGE_NAME_REPLY   = "MM_REPLY"
-const MM_MESSAGE_NAME_ACK     = "MM_ACK"
-const MM_MESSAGE_NAME_NACK    = "MM_NACK"
+const MM_MESSAGE_NAME_DATA              = "MM_DATA"
+const MM_MESSAGE_NAME_REPLY             = "MM_REPLY"
+const MM_MESSAGE_NAME_ACK               = "MM_ACK"
+const MM_MESSAGE_NAME_NACK              = "MM_NACK"
 
 // Error messages
-const MM_ERR_TIMEOUT          = "Message timeout error"
-const MM_ERR_NO_HANDLER       = "No handler error"
-const MM_ERR_NO_CONNECTION    = "No connection error"
+const MM_ERR_TIMEOUT                    = "Message timeout error"
+const MM_ERR_NO_HANDLER                 = "No handler error"
+const MM_ERR_NO_CONNECTION              = "No connection error"
+const MM_ERR_USER_DROPPED_MESSAGE       = "User dropped the message"
 
 class MessageManager {
 
@@ -395,7 +396,7 @@ class MessageManager {
         foreach (id, msg in _sentQueue) {
             local timeout = msg._timeout ? msg._timeout : _msgTimeout
             if (t - msg._sent > timeout) {
-                _callOnErr(msg, MM_ERR_TIMEOUT);
+                _callOnFail(msg, MM_ERR_TIMEOUT);
                 delete _sentQueue[id]
             }
         }
@@ -451,7 +452,7 @@ class MessageManager {
             _log("Oops, no connection");
             // Presumably there is a connectivity issue, 
             // enqueue for further retry
-            _callOnErr(msg, MM_ERR_NO_CONNECTION)
+            _callOnFail(msg, MM_ERR_NO_CONNECTION)
         }
     }
 
@@ -472,10 +473,13 @@ class MessageManager {
                     msg._nextRetry = time() + (interval ? interval : _retryInterval)
                     send = false
                 },
-                function/*dispose*/() {
+                function/*drop*/(silently = true) {
                     // User requests to dispose the message, so drop it on the floor
                     delete _retryQueue[payload["id"]]
                     send = false
+                    if (!silently) {
+                        _callOnFail(msg, MM_ERR_USER_DROPPED_MESSAGE)
+                    }
                 }
             )
         }
@@ -500,8 +504,11 @@ class MessageManager {
                     _enqueue(msg)
                     send = false
                 },
-                function/*dispose*/() {
+                function/*drop*/(silently = true) {
                     send = false
+                    if (!silently) {
+                        _callOnFail(msg, MM_ERR_USER_DROPPED_MESSAGE)
+                    }
                 }
             )
         }
@@ -587,16 +594,18 @@ class MessageManager {
     //      error           The error message
     //
     // Returns:             Nothing
-    function _callOnErr(msg, error) {
+    function _callOnFail(msg, error) {
 
         local hasHandler = false
         local checkAndCall = function(f) {
             if (_isFunc(f)) {
                 hasHandler = true
-                f(msg, error, function/*retry*/(interval = null) {
-                    msg._nextRetry = time() + (interval ? interval : _retryInterval)
-                    _enqueue(msg)
-                })
+                f(msg, error,
+                    function/*retry*/(interval = null) {
+                        msg._nextRetry = time() + (interval ? interval : _retryInterval)
+                        _enqueue(msg)
+                    }
+                )
             }
         }
 
@@ -620,7 +629,7 @@ class MessageManager {
     function _onNackReceived(payload) {
         local id = payload["id"]
         if (id in _sentQueue) {
-            _callOnErr(_sentQueue[id], MM_ERR_NO_HANDLER)
+            _callOnFail(_sentQueue[id], MM_ERR_NO_HANDLER)
         }
     }
 
