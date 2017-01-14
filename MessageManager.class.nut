@@ -17,10 +17,15 @@ const MM_MESSAGE_NAME_ACK               = "MM_ACK"
 const MM_MESSAGE_NAME_NACK              = "MM_NACK"
 
 // Error messages
-const MM_ERR_TIMEOUT                    = "Message timeout error"
 const MM_ERR_NO_HANDLER                 = "No handler error"
 const MM_ERR_NO_CONNECTION              = "No connection error"
 const MM_ERR_USER_DROPPED_MESSAGE       = "User dropped the message"
+const MM_ERR_USER_CALLED_FAIL           = "User called fail"
+
+const MM_HANDLER_NAME_ON_ACK            = "onAck"
+const MM_HANDLER_NAME_ON_FAIL           = "onFail"
+const MM_HANDLER_NAME_ON_REPLY          = "onReply"
+const MM_HANDLER_NAME_ON_TIMEOUT        = "onTimeout"
 
 class MessageManager {
 
@@ -62,6 +67,9 @@ class MessageManager {
 
     // Global handler to be called when a message delivery failed
     _onFail = null
+
+    // Global handler to be called when message sits in the awaiting for ACK queue for too long
+    _onTimeout = null
 
     // Global handler to be called when a message is acknowledged
     _onAck = null
@@ -105,6 +113,9 @@ class MessageManager {
         // Handler to be called when the message delivery failed
         _onFail = null
 
+        // Handler to be called when the message sits in the sent (waiting for ACK queue) for too long
+        _onTimeout = null
+
         // Handler to be called when the message is acknowledged
         _onAck = null
 
@@ -144,11 +155,30 @@ class MessageManager {
         //                      Paremeters:
         //                          message         The message that received an error
         //                          reason          The error reason details
-        //                          retry           The function to be called
+        //                          retry           Retry handler, which moves the message
+        //                                          to the retry queue for further processing
         //
         // Returns:             Nothing
         function onFail(handler) {
             _onFail = handler
+        }
+
+        // Sets the message-local handler to be called when message timeout error occurs
+        //
+        // Parameters:
+        //      handler         The handler to be called. It has signature:
+        //                      handler(message, wait)
+        //                      Paremeters:
+        //                          message         The message that received an error
+        //                          wait(duration)  Handler that returns the message back to the
+        //                                          sent (waiting for ACK) queue for the
+        //                                          specified period of time
+        //                          fail(message)   Handler that makes the onFail
+        //                                          to be called for the message
+        //
+        // Returns:             Nothing
+        function onTimeout(handler) {
+            _onTimeout = handler
         }
 
         // Sets the message-local handler to be called on the message acknowledgement
@@ -210,6 +240,10 @@ class MessageManager {
         _msgTimeout     = "messageTimeout"    in config ? config["messageTimeout"]    : MM_DEFAULT_MSG_TIMEOUT
         _autoRetry      = "autoRetry"         in config ? config["autoRetry"]         : MM_DEFAULT_AUTO_RETRY
         _maxAutoRetries = "maxAutoRetries"    in config ? config["maxAutoRetries"]    : MM_DEFAULT_MAX_AUTO_RETRIES
+
+        if (_cm) {
+            _cm.onDisconnect(_onDisconnect.bindenv(this))
+        }
     }
 
     // Sends data message
@@ -227,13 +261,15 @@ class MessageManager {
         local msg = DataMessage(_getNextId(), name, data, timeout, metadata)
         // Process per-message handlers
         if (handlers && handlers.len() > 0) {
-            local onAck   = "onAck"   in handlers ? handlers["onAck"]   : null
-            local onFail  = "onFail"  in handlers ? handlers["onFail"]  : null
-            local onReply = "onReply" in handlers ? handlers["onReply"] : null
+            local onAck     = MM_HANDLER_NAME_ON_ACK     in handlers ? handlers[MM_HANDLER_NAME_ON_ACK]     : null
+            local onFail    = MM_HANDLER_NAME_ON_FAIL    in handlers ? handlers[MM_HANDLER_NAME_ON_FAIL]    : null
+            local onReply   = MM_HANDLER_NAME_ON_REPLY   in handlers ? handlers[MM_HANDLER_NAME_ON_REPLY]   : null
+            local onTimeout = MM_HANDLER_NAME_ON_TIMEOUT in handlers ? handlers[MM_HANDLER_NAME_ON_TIMEOUT] : null
 
-            onAck   && msg.onAck(onAck)
-            onFail  && msg.onFail(onFail)
-            onReply && msg.onReply(onReply)
+            onAck     && msg.onAck(onAck)
+            onFail    && msg.onFail(onFail)
+            onReply   && msg.onReply(onReply)
+            onTimeout && msg.onTimeout(onTimeout)
         }
         return _send(msg)
     }
@@ -305,6 +341,24 @@ class MessageManager {
     // Returns:             Nothing
     function onFail(handler) {
         _onFail = handler
+    }
+
+    // Sets the handler to be called when message timeout error occurs
+    //
+    // Parameters:
+    //      handler         The handler to be called. It has signature:
+    //                      handler(message, wait)
+    //                      Paremeters:
+    //                          message         The message that received an error
+    //                          wait(duration)  Returns the message back to the
+    //                                          sent (waiting for ACK) queue for the
+    //                                          specified period of time
+    //                          fail(message)   Handler that makes the onFail
+    //                                          to be called for the message
+    //
+    // Returns:             Nothing
+    function onTimeout(handler) {
+        _onTimeout = handler
     }
 
     // Sets the handler to be called on the message acknowledgement
@@ -381,6 +435,19 @@ class MessageManager {
         return connected
     }
 
+    // On disconnect handler
+    //
+    // Parameters:
+    //      expected        The flag indicating whether it's an expected disconnect
+    //                      (we ignore it for now)
+    //
+    // Returns:             Nothing
+    function _onDisconnect(expected) {
+        foreach (id, msg in _sentQueue) {
+            _callOnFail(msg, MM_ERR_NO_CONNECTION)
+        }
+    }
+
     // The sent and reply queues processor
     // Handles timeouts, does resent, etc.
     //
@@ -391,13 +458,29 @@ class MessageManager {
         // Clean up the timer
         _queueTimer = null
 
+        local t     = time()
+        local drop  = true
+
         // Process timed out messages from the sent (waiting for ack) queue
-        local t = time()
         foreach (id, msg in _sentQueue) {
             local timeout = msg._timeout ? msg._timeout : _msgTimeout
             if (t - msg._sent > timeout) {
-                _callOnFail(msg, MM_ERR_TIMEOUT);
-                delete _sentQueue[id]
+                local wait = function(duration = null) {
+                    local delay = duration != null ? duration : timeout
+                    msg._timeout = t - msg._sent + delay
+                    drop = false
+                }.bindenv(this)
+
+                local fail = function() {
+                    _callOnFail(msg, MM_ERR_USER_CALLED_FAIL)
+                }.bindenv(this)
+
+                _isFunc(msg._onTimeout) && msg._onTimeout(msg, wait, fail)
+                _isFunc(_onTimeout) && _onTimeout(msg, wait, fail)
+
+                if (drop) {
+                    delete _sentQueue[id]
+                }
             }
         }
 
@@ -406,6 +489,11 @@ class MessageManager {
             if (t >= msg._nextRetry) {
                 _retry(msg)
             }
+        }
+
+        // Restart the timer if there is something pending in the queues
+        if (getPendingCount()) {
+            _startTimer()
         }
     }
 
@@ -469,8 +557,8 @@ class MessageManager {
 
         if (_isFunc(_beforeRetry)) {
             _beforeRetry(msg,
-                function/*skip*/(interval = null) {
-                    msg._nextRetry = time() + (interval ? interval : _retryInterval)
+                function/*skip*/(duration = null) {
+                    msg._nextRetry = time() + (duration ? duration : _retryInterval)
                     send = false
                 },
                 function/*drop*/(silently = true) {
