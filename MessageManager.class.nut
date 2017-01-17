@@ -29,7 +29,7 @@ const MM_HANDLER_NAME_ON_TIMEOUT        = "onTimeout"
 
 class MessageManager {
 
-    static version = [0, 0, 2];
+    static VERSION = "0.0.3";
 
     // Queue of messages that are pending for acknowledgement
     _sentQueue = null
@@ -560,7 +560,7 @@ class MessageManager {
                 function/*skip*/(duration = null) {
                     msg._nextRetry = time() + (duration ? duration : _retryInterval)
                     send = false
-                },
+                }.bindenv(this),
                 function/*drop*/(silently = true) {
                     // User requests to dispose the message, so drop it on the floor
                     delete _retryQueue[payload["id"]]
@@ -568,7 +568,7 @@ class MessageManager {
                     if (!silently) {
                         _callOnFail(msg, MM_ERR_USER_DROPPED_MESSAGE)
                     }
-                }
+                }.bindenv(this)
             )
         }
 
@@ -692,7 +692,7 @@ class MessageManager {
                     function/*retry*/(interval = null) {
                         msg._nextRetry = time() + (interval ? interval : _retryInterval)
                         _enqueue(msg)
-                    }
+                    }.bindenv(this)
                 )
             }
         }
