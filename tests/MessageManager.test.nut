@@ -10,11 +10,14 @@ class MessageManagerTestCase extends ImpTestCase {
     _numOfAcks = null
     _numOfFails = null
     _numOfReplies = null
-    _numOfOnTimeouts = null
+    _numOfTimeouts = null
     _numOfBeforeSends = null
     _numOfBeforeRetries = null
 
     _numOfLocalAcks = null
+    _numOfLocalFails = null
+    _numOfLocalReplies = null
+    _numOfLocalTimeouts = null
 
     _handlers = null
 
@@ -69,7 +72,7 @@ class MessageManagerTestCase extends ImpTestCase {
     }
 
     function gOnTimeout(msg, wait, fail) {
-        _numOfOnTimeouts++
+        _numOfTimeouts++
     }
 
     function gBeforeSend(msg, enqueue, drop) {
@@ -81,29 +84,23 @@ class MessageManagerTestCase extends ImpTestCase {
     }
 
     function localOnAck(msg) {
-        if (msg.payload.data >= 1000) {
-            _numOfLocalAcks++
-        }
+        _numOfLocalAcks++
     }
 
     function localOnFail(msg, error, retry) {
+        _numOfLocalFails++
     }
 
     function localOnReply(msg, response) {
+        _numOfLocalReplies++
     }
 
     function localOnTimeout(msg, wait, fail) {
+        _numOfLocalTimeouts++
     }
 
     function constructor() {
-        _numOfAcks = 0
-        _numOfFails = 0
-        _numOfReplies = 0
-        _numOfOnTimeouts = 0
-        _numOfBeforeSends = 0
-        _numOfBeforeRetries = 0
-
-        _numOfLocalAcks = 0
+        _resetCounters()
 
         _handlers = {}
         _handlers[MM_HANDLER_NAME_ON_ACK]     <- localOnAck.bindenv(this)
@@ -129,27 +126,51 @@ class MessageManagerTestCase extends ImpTestCase {
         _mm.beforeRetry(gBeforeRetry.bindenv(this))
     }
 
-    function send(name, data = null, timeout = null, metadata = null, handlers = null) {
+    function _send(name, data = null, timeout = null, metadata = null, handlers = null) {
         _mm.send(name, data, timeout, metadata, handlers)
     }
 
+    function _resetCounters() {
+        _numOfAcks = 0
+        _numOfFails = 0
+        _numOfReplies = 0
+        _numOfTimeouts = 0
+        _numOfBeforeSends = 0
+        _numOfBeforeRetries = 0
+
+        _numOfLocalAcks = 0
+        _numOfLocalFails = 0
+        _numOfLocalReplies = 0
+        _numOfLocalTimeouts = 0
+    }
+
     function testDisconnectedDoesntSendMessages() {
-        local totalCount = TOTAL_OFFLINE_MESSAGE_COUNT
+        _resetCounters()
         _cm.disconnect()
 
         // Send all the messages offline
-        for (local i = 0; i < totalCount; i++) {
-            send(MESSAGE_NAME)
+        for (local i = 0; i < TOTAL_OFFLINE_MESSAGE_COUNT; i++) {
+            _send(MESSAGE_NAME)
         }
 
         return Promise(function(resolve, reject) {
             imp.wakeup(2, function() {
-                assertEqual(0, _numOfAcks)
-                assertEqual(0, _numOfReplies)
-                assertEqual(0, _numOfOnTimeouts)
-                assertEqual(totalCount, _numOfFails)
-                assertEqual(totalCount, _numOfBeforeSends)
-                assertEqual(totalCount, _mm.getPendingCount())
+                assertEqual(0, _numOfAcks, "acks")
+                assertEqual(0, _numOfReplies, "replies")
+                assertEqual(0, _numOfTimeouts, "timeouts")
+                assertEqual(0, _numOfBeforeRetries, "beforeRetries")
+                assertEqual(TOTAL_OFFLINE_MESSAGE_COUNT, _numOfFails, "fails")
+                assertEqual(TOTAL_OFFLINE_MESSAGE_COUNT, _numOfBeforeSends, "beforeSends")
+                assertEqual(TOTAL_OFFLINE_MESSAGE_COUNT, _mm.getPendingCount(), "pending")
+
+                // If both handlers are defined, the number of acks should be equal to the number of replies
+                assertEqual(_numOfReplies, _numOfAcks, "acks == replies")
+
+                // No local handlers to be called
+                assertEqual(0, _numOfLocalAcks, "localAcks")
+                assertEqual(0, _numOfLocalFails, "localFails")
+                assertEqual(0, _numOfLocalReplies, "localReplies")
+                assertEqual(0, _numOfLocalTimeouts, "localTimeouts")
 
                 _cm.connect()
                 resolve()
@@ -158,23 +179,35 @@ class MessageManagerTestCase extends ImpTestCase {
     }
 
     function testMessagesSent() {
-
-        local totalCount = TOTAL_ONLINE_MESSAGE_COUNT
+        _resetCounters()
         _cm.connect()
 
         local minValue = 1000
 
         // Send all the messages offline
-        for (local i = 0; i < totalCount; i++) {
-            send(MESSAGE_NAME, minValue + i, null, null, _handlers)
+        for (local i = 0; i < TOTAL_ONLINE_MESSAGE_COUNT; i++) {
+            _send(MESSAGE_NAME, minValue + i, null, null, _handlers)
             imp.sleep(0.01)
         }
 
         return Promise(function(resolve, reject) {
             imp.wakeup(5, function() {
-                assertTrue(TOTAL_ONLINE_MESSAGE_COUNT <= _numOfLocalAcks)
-                assertTrue(TOTAL_ONLINE_MESSAGE_COUNT <= _numOfReplies)
-                assertEqual(0, _numOfOnTimeouts)
+
+                assertEqual(0, _numOfFails, "fails")
+                assertEqual(0, _numOfTimeouts, "timeouts")
+                assertEqual(0, _numOfBeforeRetries, "beforeRetries")
+                assertEqual(TOTAL_ONLINE_MESSAGE_COUNT, _numOfReplies, "replies")
+                assertEqual(TOTAL_ONLINE_MESSAGE_COUNT, _numOfBeforeSends, "beforeSends")
+
+                // If both handlers are defined, the number of acks should be equal to the number of replies
+                assertEqual(_numOfReplies, _numOfAcks, "acks == replies")
+
+                // Message local handlers should be called the same number of times as the global ones
+                assertEqual(_numOfAcks, _numOfLocalAcks, "acks == localAcks")
+                assertEqual(_numOfFails, _numOfLocalFails, "fails == localFails")
+                assertEqual(_numOfReplies, _numOfLocalReplies, "replies == localReplies")
+                assertEqual(_numOfTimeouts, _numOfLocalTimeouts, "timeouts == localTimeouts")
+
                 resolve()
             }.bindenv(this))
         }.bindenv(this))
