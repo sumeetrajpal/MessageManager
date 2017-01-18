@@ -1,0 +1,15 @@
+{
+    "apiKey": "",
+    "modelId": "" /* */,
+    "devices": [
+        "" /* */
+    ],
+    "agentFile": "tests/agent.nut",
+    "deviceFile": "MessageManager.class.nut",
+    "stopOnFailure": false,
+    "timeout": 30,
+    "tests": [
+        "*.test.nut",
+        "tests/**/*.test.nut"
+    ]
+}
