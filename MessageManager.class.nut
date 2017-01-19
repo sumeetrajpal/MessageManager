@@ -251,13 +251,13 @@ class MessageManager {
     // Parameters:
     //      name            Name of the message to be sent
     //      data            Data to be sent
-    //      timeout         Individual message timeout
-    //      metadata        Data message metadata
     //      handlers        onAck, onFail and onReply handlers for this message
     //                         for more details, please see DataMessage
+    //      timeout         Individual message timeout
+    //      metadata        Data message metadata
     //
     // Returns:             The data message object created
-    function send(name, data = null, timeout = null, metadata = null, handlers = null) {
+    function send(name, data = null, handlers = null, timeout = null, metadata = null) {
         local msg = DataMessage(_getNextId(), name, data, timeout, metadata)
         // Process per-message handlers
         if (handlers && handlers.len() > 0) {

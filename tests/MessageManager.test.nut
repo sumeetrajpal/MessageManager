@@ -126,8 +126,8 @@ class MessageManagerTestCase extends ImpTestCase {
         _mm.beforeRetry(gBeforeRetry.bindenv(this))
     }
 
-    function _send(name, data = null, timeout = null, metadata = null, handlers = null) {
-        _mm.send(name, data, timeout, metadata, handlers)
+    function _send(name, data = null, handlers = null, timeout = null, metadata = null) {
+        _mm.send(name, data, handlers, timeout, metadata)
     }
 
     function _resetCounters() {
@@ -186,7 +186,7 @@ class MessageManagerTestCase extends ImpTestCase {
 
         // Send all the messages offline
         for (local i = 0; i < TOTAL_ONLINE_MESSAGE_COUNT; i++) {
-            _send(MESSAGE_NAME, minValue + i, null, null, _handlers)
+            _send(MESSAGE_NAME, minValue + i, _handlers)
             imp.sleep(0.01)
         }
 
