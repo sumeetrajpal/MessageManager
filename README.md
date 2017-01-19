@@ -55,12 +55,14 @@ to be send over the air and meta-information used to control the message life-cy
 
 ### Details and Usage
 
-<div id="mmanager"><h4>Constructor: MessageManager(<i>[options]</i>)</h4></div>
+#### MessageManager
+
+<div id="mmanager"><h5>Constructor: MessageManager(<i>[options]</i>)</h5></div>
 
 Calling the MessageManager constructor creates a new MessageManager instance. An optional *options* 
 table can be passed into the constructor to override default behaviours.
 
-<div id="mmanager_options"><h5>options</h5></div>
+<div id="mmanager_options"><h6>options</h6></div>
 A table containing any of the following keys may be passed into the MessageManager constructor to modify the default behavior:
 
 | Key | Data Type | Default Value | Description |
@@ -72,9 +74,7 @@ A table containing any of the following keys may be passed into the MessageManag
 | *maxAutoRetries* | Integer | 0 | Changes the default number of automatic retries to be peformed by the library. After this number is reached the message will be dropped. Please not the message will automatically be retried if there is when no [onFail](#mmanager_on_fail) handler registered by the user. |
 | *connectionManager* | [ConnectionManager](https://github.com/electricimp/ConnectionManager) | `null` | Optional instance of [ConnectionManager](https://github.com/electricimp/ConnectionManager) library that helps MessageManager to track the connectivity status. |
 
-
-
-##### Examples
+###### Examples
 
 ```squirrel
 // Initialize using default settings
@@ -82,15 +82,6 @@ local mm = MessageManager();
 ```
 
 ```squirrel
-// MessageManager options
-local options = {
-    "debug": true,
-    "retryInterval": 15,
-    "messageTimeout": 2,
-    "autoRetry": true,
-    "maxAutoRetries": 10
-}
-
 // Create ConnectionManager instance
 local cm = ConnectionManager({
     "blinkupBehavior": ConnectionManager.BLINK_ALWAYS,
@@ -98,24 +89,42 @@ local cm = ConnectionManager({
 });
 imp.setsendbuffersize(8096);
 
-local mm = MessageManager(options, cm);
+// MessageManager options
+local options = {
+    "debug": true,
+    "retryInterval": 15,
+    "messageTimeout": 2,
+    "autoRetry": true,
+    "maxAutoRetries": 10,
+    "connectionManager": cm
+}
+
+local mm = MessageManager(options);
 ```
 
-<div id="mmanager_send"><h4>send(<i>name[, data, timeout]</i>)</h4></div>
+<div id="mmanager_send"><h5>MessageManager.send(name, [data, handlers, timeout, metadata])</h5></div>
 
-Sends a named message to the partner’s MessageManager instance. 
+Sends a named message to the partner side and returns the [MessageManager.DataMessage](#mmanager_data_message) object
+created.
 
-The optional *data* parameter can be a basic 
-Squirrel type (`1`, `true`, `"A String"`) or more complex data structures such as an array or table, 
-but it must be [a serializable Squirrel value](https://electricimp.com/docs/resources/serialisablesquirrel/).
+<div id="mmanager_on"><h5>MessageManager.on</h5></div>
+<div id="mmanager_before_send"><h5>MessageManager.beforeSend</h5></div>
+<div id="mmanager_before_retry"><h5>MessageManager.beforeRetry</h5></div>
+<div id="mmanager_on_fail"><h5>MessageManager.onFail</h5></div>
+<div id="mmanager_on_timeout"><h5>MessageManager.onTimeout</h5></div>
+<div id="mmanager_on_ack"><h5>MessageManager.onAck</h5></div>
+<div id="mmanager_on_reply"><h5>MessageManager.onReply</h5></div>
+<div id="mmanager_get_pending_count"><h5>MessageManager.getPendingCount</h5></div>
 
-The optional *timeout* parameter overrides the global `messageTimeout` setting per message.
- 
-```squirrel
-mm.send("turnOn", true);
-```
+<div id="mmanager_data_message"><h4>MessageManager.DataMessage</h4></div>
 
-... TBC ...
+A `MessageManager.DataMessage` instances are not supposed to be created by users manually and are always returned from
+the [MessageManager.send](#mmanager_send) method.
+
+<div id="mmanager_data_message_on_fail"><h5>MessageManager.DataMessage.onFail</h5></div>
+<div id="mmanager_data_message_on_timeout"><h5>MessageManager.DataMessage.onTimeout</h5></div>
+<div id="mmanager_data_message_on_ack"><h5>MessageManager.DataMessage.onAck</h5></div>
+<div id="mmanager_data_message_on_reply"><h5>MessageManager.DataMessage.onReply</h5></div>
 
 ### Other Usage Examples
 
