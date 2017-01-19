@@ -274,6 +274,23 @@ class MessageManager {
         return _send(msg)
     }
 
+    // Sets the handler, which will be called when a message with the specified
+    // name is received
+    //
+    // Parameters:
+    //      name            The name of the message to register the handler for
+    //      handler         The handler to be called. The handler's signature:
+    //                          handler(message, reply), where
+    //                              message         The message received
+    //                              reply           The function that can be used to reply
+    //                                              to the received message:
+    //                                              reply(data)
+    //
+    // Returns:             Nothing
+    function on(name, handler) {
+        _on[name] <- handler
+    }
+
     // Sets the handler which will be called before a message is sent
     //
     // Parameters:
@@ -309,23 +326,6 @@ class MessageManager {
     // Returns:             Nothing
     function beforeRetry(handler) {
         _beforeRetry = handler
-    }
-
-    // Sets the handler, which will be called when a message with the specified
-    // name is received
-    //
-    // Parameters:
-    //      name            The name of the message to register the handler for
-    //      handler         The handler to be called. The handler's signature:
-    //                          handler(message, reply), where
-    //                              message         The message received
-    //                              reply           The function that can be used to reply
-    //                                              to the received message:
-    //                                              reply(data)
-    //
-    // Returns:             Nothing
-    function on(name, handler) {
-        _on[name] <- handler
     }
 
     // Sets the handler to be called when an error occurs
