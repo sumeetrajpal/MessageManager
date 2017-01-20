@@ -112,10 +112,17 @@ such as an array or table, but it must be
 ```squirrel
 mm.send("lights", true);   // Turn on the lights
 ```
+
+*handlers* is a table containing the message-local message event handlers:
+
+| Key | Description | Handler |
+| ----- | -------------- | ------------------ |
+| *onAck* | Acknowledgement handler | [MessageManager.DataMessage.onAck](#mmanager_data_message_on_ack)  |
+| *onFail*| Failure handler | [MessageManager.DataMessage.onFail](#mmanager_data_message_on_fail) |
+| *onReply*| Reply handler | [MessageManager.DataMessage.onReply](#mmanager_data_message_on_reply)  |
+| *onTimeout*| Timeout handler | [MessageManager.DataMessage.onTimeout](#mmanager_data_message_on_timeout)  |
         
-The *send()* method returns a [MessageManager.DataMessage](#mmanager_data_message) object that can be used to attach 
-[onFail](#mmanager_data_message_on_fail), [onTimeout](#mmanager_data_message_on_timeout), 
-[onAck](#mmanager_data_message_on_ack), [onReply](#mmanager_data_message_on_reply) handlers.
+The *send()* method returns a [MessageManager.DataMessage](#mmanager_data_message) object.
 
 <div id="mmanager_on"><h5>MessageManager.on(<i>messageName, callback</i>)</h5></div>
 
@@ -250,10 +257,48 @@ mm.onTimeout(
 
 <div id="mmanager_on_ack"><h5>MessageManager.onAck(<i>handler</i>)</h5></div>
 
-Sets the handler to be called on the message acknowledgement.
+Sets the handler to be called on the message acknowledgement. The handler has the signature
+``handler(message)``
+
+where *message* is an instance of [DataMessage](#mmanager_data_message) that was acknowledged by the partner.
+
+```squirrel
+mm.onAck(
+    function(msg) {
+        // Just log the ACK event
+        server.log("ACK received for " + msg.payload.data);
+    }
+)
+```
 
 <div id="mmanager_on_reply"><h5>MessageManager.onReply(<i>handler</i>)</h5></div>
-<div id="mmanager_get_pending_count"><h5>MessageManager.getPendingCount</h5></div>
+
+Sets the handler to be called when the message is replied. The handler has the signature
+
+``handler(message, response)``
+
+where *message* is an instance of [DataMessage](#mmanager_data_message) that was replied to and *response* is the 
+partner response body.
+ 
+```squirrel
+mm.onReply(
+    function(msg, response) {
+        processResponseFor(msg.payload.data, response);
+    }
+)
+```
+
+<div id="mmanager_get_pending_count"><h5>MessageManager.getPendingCount()</h5></div>
+
+Returns the overall number of pending messages (either waiting for acknowledgement or hanging in the retry queue).
+
+```squirrel
+if (mm.getPendingCount() < SOME_MAX_PENDING_COUNT) {
+    mm.send("temp", temp);
+} else {
+    // do something else
+}
+```
 
 <div id="mmanager_data_message"><h4>MessageManager.DataMessage</h4></div>
 
@@ -261,9 +306,20 @@ A `MessageManager.DataMessage` instances are not supposed to be created by users
 the [MessageManager.send](#mmanager_send) function.
 
 <div id="mmanager_data_message_on_fail"><h5>MessageManager.DataMessage.onFail</h5></div>
+
+Message-local version of the [MessageManager.onFail](#mmanager_on_fail) handler.
+
 <div id="mmanager_data_message_on_timeout"><h5>MessageManager.DataMessage.onTimeout</h5></div>
+
+Message-local version of the [MessageManager.onTimeout](#mmanager_on_timeout) handler.
+
 <div id="mmanager_data_message_on_ack"><h5>MessageManager.DataMessage.onAck</h5></div>
+
+Message-local version of the [MessageManager.onAck](#mmanager_on_ack) handler.
+
 <div id="mmanager_data_message_on_reply"><h5>MessageManager.DataMessage.onReply</h5></div>
+
+Message-local version of the [MessageManager.onReply](#mmanager_on_reply) handler.
 
 ### Other Usage Examples
 
@@ -285,11 +341,12 @@ local cm = ConnectionManager({
 imp.setsendbuffersize(8096)
 
 local config = {
-    "msgTimeout": 2
+    "messageTimeout": 2,
+    "connectionManager": cm
 }
 
 local counter = 0
-local mm = MessageManager(config, cm)
+local mm = MessageManager(config)
 
 mm.onFail(
     function(msg, error, retry) {
