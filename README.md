@@ -102,18 +102,66 @@ local options = {
 local mm = MessageManager(options);
 ```
 
-<div id="mmanager_send"><h5>MessageManager.send(name, [data, handlers, timeout, metadata])</h5></div>
+<div id="mmanager_send"><h5>MessageManager.send(<i>name, [data, handlers, timeout, metadata]</i>)</h5></div>
 
 Sends a named message to the partner side and returns the [MessageManager.DataMessage](#mmanager_data_message) object
-created.
+created.The *data* parameter can be a basic Squirrel type (`1`, `true`, `"A String"`) or more complex data structures 
+such as an array or table, but it must be 
+[a serializable Squirrel value](https://electricimp.com/docs/resources/serialisablesquirrel/).
+        
+```squirrel
+mm.send("lights", true);   // Turn on the lights
+```
+        
+The *send()* method returns a [MessageManager.DataMessage](#mmanager_data_message) object that can be used to attach 
+[onFail](#mmanager_data_message_on_fail), [onTimeout](#mmanager_data_message_on_timeout), 
+[onAck](#mmanager_data_message_on_ack), [onReply](#mmanager_data_message_on_reply) handlers.
 
-<div id="mmanager_on"><h5>MessageManager.on</h5></div>
-<div id="mmanager_before_send"><h5>MessageManager.beforeSend</h5></div>
-<div id="mmanager_before_retry"><h5>MessageManager.beforeRetry</h5></div>
-<div id="mmanager_on_fail"><h5>MessageManager.onFail</h5></div>
-<div id="mmanager_on_timeout"><h5>MessageManager.onTimeout</h5></div>
-<div id="mmanager_on_ack"><h5>MessageManager.onAck</h5></div>
-<div id="mmanager_on_reply"><h5>MessageManager.onReply</h5></div>
+<div id="mmanager_on"><h5>MessageManager.on(<i>messageName, callback</i>)</h5></div>
+
+
+Sets a message listener (the *callback*) for the specified *messageName*. 
+The callback method takes two parameters: *message* (the message) and *reply* (a method that can be called to 
+reply to the message).
+
+```squirrel
+// Get a message, and do something with it
+mm.on("lights", function(message, reply) {
+    led.write(message.data);
+    reply("Got it!");
+});
+```
+
+<div id="mmanager_before_send"><h5>MessageManager.beforeSend(<i>handler</i>)</h5></div>
+
+Sets the handler which will be called before a message is sent. The message handler has the following signature:
+
+``handler(message, enqueue, drop)``
+
+where *message* is the message to be sent, *enqueue()* is the callback with no parameters which when called makes the 
+message appended to the retry queue for later processing, *drop(silently=true)* is the callback which when called
+disposes the message.
+
+```squirrel
+mm.beforeSend(
+    function(msg, enqueue, drop) {
+        if (runningOutOfMemory()) {
+            drop()
+        }
+    }
+)
+```
+
+*drop()* has a *silently* parameter which if set to *false* makes the [MessageManager.onFail](#mmanager_on_fail) and
+[MessageManager.DataMessage.onFail](#mmanager_data_message_on_fail) handlers to be called if any of those are set. 
+Otherwise, if silently is not specified or is set to true, calling to *drop()* results in a silent message disposal.
+
+
+<div id="mmanager_before_retry"><h5>MessageManager.beforeRetry(<i>handler</i>)</h5></div>
+<div id="mmanager_on_fail"><h5>MessageManager.onFail(<i>handler</i>)</h5></div>
+<div id="mmanager_on_timeout"><h5>MessageManager.onTimeout(<i>handler</i>)</h5></div>
+<div id="mmanager_on_ack"><h5>MessageManager.onAck(<i>handler</i>)</h5></div>
+<div id="mmanager_on_reply"><h5>MessageManager.onReply(<i>handler</i>)</h5></div>
 <div id="mmanager_get_pending_count"><h5>MessageManager.getPendingCount</h5></div>
 
 <div id="mmanager_data_message"><h4>MessageManager.DataMessage</h4></div>
