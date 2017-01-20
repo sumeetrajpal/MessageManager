@@ -68,7 +68,7 @@ A table containing any of the following keys may be passed into the MessageManag
 | Key | Data Type | Default Value | Description |
 | ----- | -------------- | ------------------ | --------------- |
 | *debug* | Boolean | `false` | The flag that enables debug library mode, which turns on extended logging. |
-| *retryInterval* | Integer | 10 | Changes the default timeout parameter passed to the [retry](#mmanager_retry) method. |
+| *retryInterval* | Integer | 10 | Changes the default timeout parameter passed to the [retry](#mmanager_retry) function. |
 | *messageTimeout* | Integer | 10 | Changes the default timeout required before a message is considered failed (to be acknowledged or replied). |
 | *autoRetry* | Boolean | `false` | If set to `true`, MessageManager will automatically continue to retry sending a message until *maxAutoRetries* has been reached when no [onFail](#mmanager_on_fail) handler is supplied. Please note if *maxAutoRetries* is set to 0, *autoRetry* will have no limit to the number of times it will retry. |
 | *maxAutoRetries* | Integer | 0 | Changes the default number of automatic retries to be peformed by the library. After this number is reached the message will be dropped. Please not the message will automatically be retried if there is when no [onFail](#mmanager_on_fail) handler registered by the user. |
@@ -121,7 +121,7 @@ The *send()* method returns a [MessageManager.DataMessage](#mmanager_data_messag
 
 
 Sets a message listener (the *callback*) for the specified *messageName*. 
-The callback method takes two parameters: *message* (the message) and *reply* (a method that can be called to 
+The callback function takes two parameters: *message* (the message) and *reply* (a function that can be called to 
 reply to the message).
 
 ```squirrel
@@ -138,9 +138,12 @@ Sets the handler which will be called before a message is sent. The handler has 
 
 ``handler(message, enqueue, drop)``
 
-where *message* is the message to be sent, *enqueue()* is the callback with no parameters which when called makes the 
+where *message* is an instance of [DataMessage](#mmanager_data_message) to be sent, 
+*enqueue()* is the callback with no parameters which when called makes the 
 message appended to the retry queue for later processing, *drop(silently=true)* is the callback which when called
-disposes the message (either silently or through the *onFail* callback).
+disposes the message (either silently or through the *onFail* callbacks).
+
+The *enqueue* and *drop* functions must be called synchronously if they are to be called at all.
 
 ```squirrel
 mm.beforeSend(
@@ -156,10 +159,9 @@ mm.beforeSend(
 )
 ```
 
-*drop()* has a *silently* parameter which if set to *false* makes the [MessageManager.onFail](#mmanager_on_fail) and
+*drop()* has *silently* parameter which if set to *false* makes the [MessageManager.onFail](#mmanager_on_fail) and
 [MessageManager.DataMessage.onFail](#mmanager_data_message_on_fail) handlers to be called if any of those are registered. 
-Otherwise, if silently is not specified or is set to true, calling to *drop()* results in a silent message disposal.
-
+Otherwise, if *silently* is not specified or is set to *true*, calling *drop()* results in a silent message disposal.
 
 <div id="mmanager_before_retry"><h5>MessageManager.beforeRetry(<i>handler</i>)</h5></div>
 
@@ -168,9 +170,12 @@ signature:
 
 ``handler(message, skip, drop)``
 
-where *message* is message to be retried, *skip(duration)* is callback which when called postpones the retry
+where *message* is an instance of [DataMessage](#mmanager_data_message) to be retried, 
+*skip(duration)* is callback which when called postpones the retry
 attempt and leaves the message in the retry queue for the specified amount of time, *drop(silently=true)* is 
 the callback which when called disposes the message (either silently or through the *onFail* callback).
+
+The *skip* and *drop* functions must be called synchronously if they are to be called at all.
  
 ```squirrel
 mm.beforeRetry(
@@ -194,15 +199,66 @@ The *duration* parameter of *skip(duration)* if not specified defaults to *retry
 Otherwise, if silently is not specified or is set to true, calling to *drop()* results in a silent message disposal.
 
 <div id="mmanager_on_fail"><h5>MessageManager.onFail(<i>handler</i>)</h5></div>
+
+Sets the handler to be called when an error with a message occurs. The handler has the signature
+ 
+``handler(message, error, retry)``
+
+where *message* is an instance of [DataMessage](#mmanager_data_message) that caused the error, 
+*reason* is the error description string. The *retry* parameter is a 
+function that can be invoked to retry sending the message in a specified period of time. This function must be called 
+synchronously if it is to be called at all. If the *retry(interval)* function is not called the message will be expired.
+
+If there is no *interval* parameter specified for the *retry* function, the *retryInterval* value provided for 
+*MessageManager* [constructor](#mmanager) is used.
+
+```squirrel
+mm.onFail(
+    function(msg, error, retry) {
+        // Always retry to send the message
+        retry()
+    }
+)
+```
+
 <div id="mmanager_on_timeout"><h5>MessageManager.onTimeout(<i>handler</i>)</h5></div>
+
+Sets the handler to be called when message timeout error occurs. The *handler* callback has the following signature:
+
+``handler(message, wait, fail)``
+
+where *message* is an instance of [DataMessage](#mmanager_data_message) that caused the timeout error, 
+and *wait(interval)* is the handler, which when is called,
+resets the acknowledgement timeout for the message, which means the message will not raise a timeout error for the 
+next specified interval of time. This function must be called synchronously if it is to be called at all.
+ 
+The *fail* parameter is a callback function which when called makes the message to fall through the *onFail* callbacks.
+
+If none of *wait* or *fail* callbacks are called, the message will be expired.
+ 
+```squirrel
+mm.onTimeout(
+    function(msg, wait, fail) {
+        if (isStillValid(msg)) {
+            wait(10)
+        }
+        // Fail otherwise
+        fail()
+    }
+)
+```
+
 <div id="mmanager_on_ack"><h5>MessageManager.onAck(<i>handler</i>)</h5></div>
+
+Sets the handler to be called on the message acknowledgement.
+
 <div id="mmanager_on_reply"><h5>MessageManager.onReply(<i>handler</i>)</h5></div>
 <div id="mmanager_get_pending_count"><h5>MessageManager.getPendingCount</h5></div>
 
 <div id="mmanager_data_message"><h4>MessageManager.DataMessage</h4></div>
 
 A `MessageManager.DataMessage` instances are not supposed to be created by users manually and are always returned from
-the [MessageManager.send](#mmanager_send) method.
+the [MessageManager.send](#mmanager_send) function.
 
 <div id="mmanager_data_message_on_fail"><h5>MessageManager.DataMessage.onFail</h5></div>
 <div id="mmanager_data_message_on_timeout"><h5>MessageManager.DataMessage.onTimeout</h5></div>
