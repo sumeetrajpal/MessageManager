@@ -134,13 +134,13 @@ mm.on("lights", function(message, reply) {
 
 <div id="mmanager_before_send"><h5>MessageManager.beforeSend(<i>handler</i>)</h5></div>
 
-Sets the handler which will be called before a message is sent. The message handler has the following signature:
+Sets the handler which will be called before a message is sent. The handler has the following signature:
 
 ``handler(message, enqueue, drop)``
 
 where *message* is the message to be sent, *enqueue()* is the callback with no parameters which when called makes the 
 message appended to the retry queue for later processing, *drop(silently=true)* is the callback which when called
-disposes the message.
+disposes the message (either silently or through the *onFail* callback).
 
 ```squirrel
 mm.beforeSend(
@@ -148,16 +148,51 @@ mm.beforeSend(
         if (runningOutOfMemory()) {
             drop()
         }
+        
+        if (needToPreserveMessageOrder() && previousMessagesFailed()) {
+            enqueue()
+        }
     }
 )
 ```
 
 *drop()* has a *silently* parameter which if set to *false* makes the [MessageManager.onFail](#mmanager_on_fail) and
-[MessageManager.DataMessage.onFail](#mmanager_data_message_on_fail) handlers to be called if any of those are set. 
+[MessageManager.DataMessage.onFail](#mmanager_data_message_on_fail) handlers to be called if any of those are registered. 
 Otherwise, if silently is not specified or is set to true, calling to *drop()* results in a silent message disposal.
 
 
 <div id="mmanager_before_retry"><h5>MessageManager.beforeRetry(<i>handler</i>)</h5></div>
+
+Sets the handler for retry operation, which will be called before the message is retried. The handler has the following 
+signature:
+
+``handler(message, skip, drop)``
+
+where *message* is message to be retried, *skip(duration)* is callback which when called postpones the retry
+attempt and leaves the message in the retry queue for the specified amount of time, *drop(silently=true)* is 
+the callback which when called disposes the message (either silently or through the *onFail* callback).
+ 
+```squirrel
+mm.beforeRetry(
+    function(msg, skip, drop) {
+        if (runningOutOfMemory()) {
+            drop()
+        }
+        
+        if (needToWaitForSomeReasonBeforeRetry()) {
+            skip(duration)
+        }
+    }
+)
+```
+
+The *duration* parameter of *skip(duration)* if not specified defaults to *retryInterval* provided for 
+*MessageManager* [constructor](#mmanager).
+
+*drop()* has a *silently* parameter which if set to *false* makes the [MessageManager.onFail](#mmanager_on_fail) and
+[MessageManager.DataMessage.onFail](#mmanager_data_message_on_fail) handlers to be called if any of those are registered. 
+Otherwise, if silently is not specified or is set to true, calling to *drop()* results in a silent message disposal.
+
 <div id="mmanager_on_fail"><h5>MessageManager.onFail(<i>handler</i>)</h5></div>
 <div id="mmanager_on_timeout"><h5>MessageManager.onTimeout(<i>handler</i>)</h5></div>
 <div id="mmanager_on_ack"><h5>MessageManager.onAck(<i>handler</i>)</h5></div>
