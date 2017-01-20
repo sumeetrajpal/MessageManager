@@ -155,7 +155,7 @@ class MessageManager {
         //                      Paremeters:
         //                          message         The message that received an error
         //                          reason          The error reason details
-        //                          retry           Retry handler, which moves the message
+        //                          retry(interval) Retry handler, which moves the message
         //                                          to the retry queue for further processing
         //
         // Returns:             Nothing
@@ -173,7 +173,7 @@ class MessageManager {
         //                          wait(duration)  Handler that returns the message back to the
         //                                          sent (waiting for ACK) queue for the
         //                                          specified period of time
-        //                          fail(message)   Handler that makes the onFail
+        //                          fail()          Handler that makes the onFail
         //                                          to be called for the message
         //
         // Returns:             Nothing
@@ -282,7 +282,7 @@ class MessageManager {
     //      handler         The handler to be called. The handler's signature:
     //                          handler(message, reply), where
     //                              message         The message received
-    //                              reply           The function that can be used to reply
+    //                              reply(data)     The function that can be used to reply
     //                                              to the received message:
     //                                              reply(data)
     //
@@ -297,12 +297,17 @@ class MessageManager {
     //      handler         The handler to be called before send. The handler's signature:
     //                          handler(message, enqueue, dispose), where
     //                              message         The message to be sent
-    //                              enqueue         Callback which when called
+    //                              enqueue()       Callback which when called
     //                                              makes the message appended to the
     //                                              retry queue for later processing
     //                                              enqueue() has no arguments
-    //                              dispose         Callback which when called
-    //                                              disposes the message
+    //                              drop(silently)  Callback which when called drops the message.
+    //                                              drop() has a `silently` parameter which if set to false
+    //                                              makes the MessageManager.onFail and
+    //                                              MessageManager.DataMessage.onFail handlers to be called if
+    //                                              any of those are registered.
+    //                                              Otherwise, if `silently` is not specified or is set to true,
+    //                                              calling to drop() results in a silent message disposal.
     //
     // Returns:             Nothing
     function beforeSend(handler) {
@@ -310,18 +315,23 @@ class MessageManager {
     }
 
 
-    // Sets the handler for send operation, which will
+    // Sets the handler for retry operation, which will
     // be called before the message is retried
     //
     // Parameters:
     //      handler         The handler to be called before retry. The handler's signature:
     //                          handler(message, dispose), where
-    //                              message         The message that was replied to
-    //                              skip            Skip retry attempt and leave the message
-    //                                              in the retry queue for now
-    //                              dispose         The function that makes the message
-    //                                              permanently removed from the retry queue
-    //                                              dispose() has ho arguments
+    //                              message         The message to be retried
+    //                              skip(duration)  The callback which when called postpones the retry
+    //                                              attempt and leaves the message
+    //                                              in the retry queue for the specified amount of time.
+    //                              drop(silently)  Callback which when called drops the message.
+    //                                              drop() has a `silently` parameter which if set to false
+    //                                              makes the MessageManager.onFail and
+    //                                              MessageManager.DataMessage.onFail handlers to be called if
+    //                                              any of those are registered.
+    //                                              Otherwise, if `silently` is not specified or is set to true,
+    //                                              calling to drop() results in a silent message disposal.
     //
     // Returns:             Nothing
     function beforeRetry(handler) {
@@ -335,8 +345,8 @@ class MessageManager {
     //                      handler(message, reason, retry)
     //                      Paremeters:
     //                          message         The message that received an error
-    //                          reason          The error reason details
-    //                          retry           The function to be called
+    //                          error           The string with the error description
+    //                          retry           The callback to be invoked if the message should be retried
     //
     // Returns:             Nothing
     function onFail(handler) {
@@ -347,7 +357,7 @@ class MessageManager {
     //
     // Parameters:
     //      handler         The handler to be called. It has signature:
-    //                      handler(message, wait)
+    //                      handler(message, wait, fail)
     //                      Paremeters:
     //                          message         The message that received an error
     //                          wait(duration)  Returns the message back to the
