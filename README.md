@@ -78,7 +78,7 @@ A table containing any of the following keys may be passed into the MessageManag
 
 ```squirrel
 // Initialize using default settings
-local mm = MessageManager();
+local mm = MessageManager()
 ```
 
 ```squirrel
@@ -86,8 +86,8 @@ local mm = MessageManager();
 local cm = ConnectionManager({
     "blinkupBehavior": ConnectionManager.BLINK_ALWAYS,
     "stayConnected": true
-});
-imp.setsendbuffersize(8096);
+})
+imp.setsendbuffersize(8096)
 
 // MessageManager options
 local options = {
@@ -99,7 +99,7 @@ local options = {
     "connectionManager": cm
 }
 
-local mm = MessageManager(options);
+local mm = MessageManager(options)
 ```
 
 <div id="mmanager_send"><h5>MessageManager.send(<i>name, [data, handlers, timeout, metadata]</i>)</h5></div>
@@ -110,7 +110,7 @@ such as an array or table, but it must be
 [a serializable Squirrel value](https://electricimp.com/docs/resources/serialisablesquirrel/).
         
 ```squirrel
-mm.send("lights", true);   // Turn on the lights
+mm.send("lights", true)   // Turn on the lights
 ```
 
 *handlers* is a table containing the message-local message event handlers:
@@ -134,9 +134,9 @@ reply to the message).
 ```squirrel
 // Get a message, and do something with it
 mm.on("lights", function(message, reply) {
-    led.write(message.data);
-    reply("Got it!");
-});
+    led.write(message.data)
+    reply("Got it!")
+})
 ```
 
 <div id="mmanager_before_send"><h5>MessageManager.beforeSend(<i>handler</i>)</h5></div>
@@ -266,7 +266,7 @@ where *message* is an instance of [DataMessage](#mmanager_data_message) that was
 mm.onAck(
     function(msg) {
         // Just log the ACK event
-        server.log("ACK received for " + msg.payload.data);
+        server.log("ACK received for " + msg.payload.data)
     }
 )
 ```
@@ -283,7 +283,7 @@ partner response body.
 ```squirrel
 mm.onReply(
     function(msg, response) {
-        processResponseFor(msg.payload.data, response);
+        processResponseFor(msg.payload.data, response)
     }
 )
 ```
@@ -294,7 +294,7 @@ Returns the overall number of pending messages (either waiting for acknowledgeme
 
 ```squirrel
 if (mm.getPendingCount() < SOME_MAX_PENDING_COUNT) {
-    mm.send("temp", temp);
+    mm.send("temp", temp)
 } else {
     // do something else
 }
