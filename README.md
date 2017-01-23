@@ -3,13 +3,8 @@
 MessageManager is framework for asynchronous bidirectional agent to device communication. 
 The library is a successor of [Bullwinkle](https://github.com/electricimp/Bullwinkle).
 
-The work on MessageManager was inspired by complains on the good old 
-[Bullwinkle](https://github.com/electricimp/Bullwinkle), which
-did not prove itself to be the most optimized library from the footprint standpoint 
-(timers, dynamic memory and traffic utilization). 
-
-So we started working on a completely new library to address these concerns which ended up to be
-[MessageManager](https://github.com/electricimp/MessageManager).
+**Please note:** the MessageManager is designed to run over reliable (i.e. TCP/TLS) connections. Retries only occur in the case
+of dropped connections or lost packets.
 
 ## Some MessageManager Features
 
