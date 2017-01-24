@@ -243,9 +243,10 @@ mm.onTimeout(
     function(msg, wait, fail) {
         if (isStillValid(msg)) {
             wait(10)
+        } else {
+            // Fail otherwise
+            fail()
         }
-        // Fail otherwise
-        fail()
     }
 )
 ```
