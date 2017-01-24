@@ -4,11 +4,13 @@
 
 // Default configuration values
 const MM_DEFAULT_DEBUG                  = 0
-const MM_DEFAULT_QUEUE_CHECK_INTERVAL   = 0.5 // sec
 const MM_DEFAULT_MSG_TIMEOUT            = 10  // sec
 const MM_DEFAULT_RETRY_INTERVAL         = 10  // sec
 const MM_DEFAULT_AUTO_RETRY             = 0
 const MM_DEFAULT_MAX_AUTO_RETRIES       = 0
+
+// Other configuration constants
+const MM_QUEUE_CHECK_INTERVAL           = 0.5 // sec
 
 // Message types
 const MM_MESSAGE_NAME_DATA              = "MM_DATA"
@@ -22,6 +24,7 @@ const MM_ERR_NO_CONNECTION              = "No connection error"
 const MM_ERR_USER_DROPPED_MESSAGE       = "User dropped the message"
 const MM_ERR_USER_CALLED_FAIL           = "User called fail"
 
+// Message names for handlers
 const MM_HANDLER_NAME_ON_ACK            = "onAck"
 const MM_HANDLER_NAME_ON_FAIL           = "onFail"
 const MM_HANDLER_NAME_ON_REPLY          = "onReply"
@@ -416,7 +419,7 @@ class MessageManager {
     function _enqueue(msg) {
         _log("Adding for retry: " + msg.payload.data)
         _retryQueue[msg.payload["id"]] <- msg
-        _startTimer()
+        _setTimer()
     }
 
     // Returns true if the code is running on the agent side, false otherwise
@@ -503,7 +506,7 @@ class MessageManager {
 
         // Restart the timer if there is something pending in the queues
         if (getPendingCount()) {
-            _startTimer()
+            _setTimer()
         }
     }
 
@@ -513,12 +516,12 @@ class MessageManager {
     // Parameters:    
     //
     // Returns:             Nothing
-    function _startTimer() {
+    function _setTimer() {
         if (_queueTimer) {
             // The timer is running already
             return
         }
-        _queueTimer = imp.wakeup(MM_DEFAULT_QUEUE_CHECK_INTERVAL, 
+        _queueTimer = imp.wakeup(MM_QUEUE_CHECK_INTERVAL,
                                 _processQueues.bindenv(this))
     }
 
@@ -545,7 +548,7 @@ class MessageManager {
             msg._sent = time()
             _sentQueue[payload["id"]] <- msg
             // Make sure the timer is running
-            _startTimer()
+            _setTimer()
         } else {
             _log("Oops, no connection");
             // Presumably there is a connectivity issue, 
