@@ -6,20 +6,6 @@ The library is a successor of [Bullwinkle](https://github.com/electricimp/Bullwi
 **Please note:** the MessageManager is designed to run over reliable (i.e. TCP/TLS) connections. Retries only occur in the case
 of dropped connections or lost packets.
 
-## Some MessageManager Features
-
-- Optimized system timers utilization
-- Optimized traffic used for service messages (replies and acknowledgements)
-- Connection awareness (leveraging optional 
-[ConnectionManager](https://github.com/electricimp/ConnectionManager) library and checking the  
-device/agent.send status)
-- Support expendable message metadata, which is not sent over the wire
-- Per-message timeouts
-- API hooks to manage outgoing messages. This may be used to adjust application-specific 
-identifiers or timestamps, introduce additional fields and meta-information or to delay a message delivery
-- API hooks to control retry process. This may be used to dispose outdated messages, 
-update it's meta-information or delay retry
-
 ## API Overview
 - [MessageManager](#mmanager) - The core library - used to add/remove handlers, and send messages
     - [MessageManager.send](#mmanager_send) - Sends the data message
@@ -63,7 +49,7 @@ A table containing any of the following keys may be passed into the MessageManag
 | Key | Data Type | Default Value | Description |
 | ----- | -------------- | ------------------ | --------------- |
 | *debug* | Boolean | `false` | The flag that enables debug library mode, which turns on extended logging. |
-| *retryInterval* | Integer | 10 | Changes the default timeout parameter passed to the [retry](#mmanager_retry) function. |
+| *retryInterval* | Integer | 0 | Changes the default timeout parameter passed to the [retry](#mmanager_retry) function. |
 | *messageTimeout* | Integer | 10 | Changes the default timeout required before a message is considered failed (to be acknowledged or replied). |
 | *autoRetry* | Boolean | `false` | If set to `true`, MessageManager will automatically continue to retry sending a message until *maxAutoRetries* has been reached when no [onFail](#mmanager_on_fail) handler is supplied. Please note if *maxAutoRetries* is set to 0, *autoRetry* will have no limit to the number of times it will retry. |
 | *maxAutoRetries* | Integer | 0 | Changes the default number of automatic retries to be peformed by the library. After this number is reached the message will be dropped. Please not the message will automatically be retried if there is when no [onFail](#mmanager_on_fail) handler registered by the user. |
@@ -73,7 +59,7 @@ A table containing any of the following keys may be passed into the MessageManag
 
 ```squirrel
 // Initialize using default settings
-local mm = MessageManager()
+local mm = MessageManager();
 ```
 
 ```squirrel
@@ -81,8 +67,8 @@ local mm = MessageManager()
 local cm = ConnectionManager({
     "blinkupBehavior": ConnectionManager.BLINK_ALWAYS,
     "stayConnected": true
-})
-imp.setsendbuffersize(8096)
+});
+imp.setsendbuffersize(8096);
 
 // MessageManager options
 local options = {
@@ -92,9 +78,9 @@ local options = {
     "autoRetry": true,
     "maxAutoRetries": 10,
     "connectionManager": cm
-}
+};
 
-local mm = MessageManager(options)
+local mm = MessageManager(options);
 ```
 
 <div id="mmanager_send"><h5>MessageManager.send(<i>name, [data, handlers, timeout, metadata]</i>)</h5></div>
@@ -105,7 +91,7 @@ such as an array or table, but it must be
 [a serializable Squirrel value](https://electricimp.com/docs/resources/serialisablesquirrel/).
         
 ```squirrel
-mm.send("lights", true)   // Turn on the lights
+mm.send("lights", true);   // Turn on the lights
 ```
 
 *handlers* is a table containing the message-local message event handlers:
@@ -129,9 +115,9 @@ reply to the message).
 ```squirrel
 // Get a message, and do something with it
 mm.on("lights", function(message, reply) {
-    led.write(message.data)
-    reply("Got it!")
-})
+    led.write(message.data);
+    reply("Got it!");
+});
 ```
 
 <div id="mmanager_before_send"><h5>MessageManager.beforeSend(<i>handler</i>)</h5></div>
@@ -151,11 +137,11 @@ The *enqueue* and *drop* functions must be called synchronously if they are to b
 mm.beforeSend(
     function(msg, enqueue, drop) {
         if (runningOutOfMemory()) {
-            drop()
+            drop();
         }
         
         if (needToPreserveMessageOrder() && previousMessagesFailed()) {
-            enqueue()
+            enqueue();
         }
     }
 )
@@ -183,11 +169,11 @@ The *skip* and *drop* functions must be called synchronously if they are to be c
 mm.beforeRetry(
     function(msg, skip, drop) {
         if (runningOutOfMemory()) {
-            drop()
+            drop();
         }
         
         if (needToWaitForSomeReasonBeforeRetry()) {
-            skip(duration)
+            skip(duration);
         }
     }
 )
@@ -218,7 +204,7 @@ If there is no *interval* parameter specified for the *retry* function, the *ret
 mm.onFail(
     function(msg, error, retry) {
         // Always retry to send the message
-        retry()
+        retry();
     }
 )
 ```
@@ -242,13 +228,13 @@ If none of *wait* or *fail* callbacks are called, the message will be expired.
 mm.onTimeout(
     function(msg, wait, fail) {
         if (isStillValid(msg)) {
-            wait(10)
+            wait(10);
         } else {
             // Fail otherwise
-            fail()
+            fail();
         }
     }
-)
+);
 ```
 
 <div id="mmanager_on_ack"><h5>MessageManager.onAck(<i>handler</i>)</h5></div>
@@ -262,7 +248,7 @@ where *message* is an instance of [DataMessage](#mmanager_data_message) that was
 mm.onAck(
     function(msg) {
         // Just log the ACK event
-        server.log("ACK received for " + msg.payload.data)
+        server.log("ACK received for " + msg.payload.data);
     }
 )
 ```
@@ -279,7 +265,7 @@ partner response body.
 ```squirrel
 mm.onReply(
     function(msg, response) {
-        processResponseFor(msg.payload.data, response)
+        processResponseFor(msg.payload.data, response);
     }
 )
 ```
@@ -290,7 +276,7 @@ Returns the overall number of pending messages (either waiting for acknowledgeme
 
 ```squirrel
 if (mm.getPendingCount() < SOME_MAX_PENDING_COUNT) {
-    mm.send("temp", temp)
+    mm.send("temp", temp);
 } else {
     // do something else
 }
@@ -330,7 +316,7 @@ Message-local version of the [MessageManager.onReply](#mmanager_on_reply) handle
 local cm = ConnectionManager({
     "blinkupBehavior": ConnectionManager.BLINK_ALWAYS,
     "stayConnected": true
-})
+});
 
 // Set the recommended buffer size 
 // (see https://github.com/electricimp/ConnectionManager for details)
@@ -339,30 +325,30 @@ imp.setsendbuffersize(8096)
 local config = {
     "messageTimeout": 2,
     "connectionManager": cm
-}
+};
 
 local counter = 0
 local mm = MessageManager(config)
 
 mm.onFail(
     function(msg, error, retry) {
-        server.log("Error occurred: " + error)
-        retry()
+        server.log("Error occurred: " + error);
+        retry();
     }
-)
+);
 
 mm.onReply(
     function(msg, response) {
-        server.log("Response for " + msg.payload.data + " received: " + response)
+        server.log("Response for " + msg.payload.data + " received: " + response);
     }
-)
+);
 
 function sendData() {
     mm.send("name", counter++);
-    imp.wakeup(1, sendData)
+    imp.wakeup(1, sendData);
 }
 
-sendData()
+sendData();
 ```
 
 ```squirrel
@@ -370,12 +356,12 @@ sendData()
 
 #require "MessageManager.class.nut:0.0.2"
 
-local mm = MessageManager()
+local mm = MessageManager();
 
 mm.on("name", function(data, reply) {
-    server.log("message received: " + data)
-    reply("Got it!")
-})
+    server.log("message received: " + data);
+    reply("Got it!");
+});
 ```
 
 ## License
