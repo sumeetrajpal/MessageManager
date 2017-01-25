@@ -4,19 +4,21 @@
 
 // Default configuration values
 const MM_DEFAULT_DEBUG                  = 0;
-const MM_DEFAULT_MSG_TIMEOUT            = 10;  // sec
+const MM_DEFAULT_MSG_TIMEOUT            = 10;   // sec
 const MM_DEFAULT_RETRY_INTERVAL         = 10;   // sec
 const MM_DEFAULT_AUTO_RETRY             = 0;
 const MM_DEFAULT_MAX_AUTO_RETRIES       = 0;
 
 // Other configuration constants
-const MM_QUEUE_CHECK_INTERVAL           = 0.5; // sec
+const MM_QUEUE_CHECK_INTERVAL           = 0.5;  // sec
+const MM_START_UP_DELAY                 = 0.25; // sec
 
 // Message types
-const MM_MESSAGE_NAME_DATA              = "MM_DATA";
-const MM_MESSAGE_NAME_REPLY             = "MM_REPLY";
-const MM_MESSAGE_NAME_ACK               = "MM_ACK";
-const MM_MESSAGE_NAME_NACK              = "MM_NACK";
+const MM_MESSAGE_TYPE_DATA              = "MM_DATA";
+const MM_MESSAGE_TYPE_REPLY             = "MM_REPLY";
+const MM_MESSAGE_TYPE_ACK               = "MM_ACK";
+const MM_MESSAGE_TYPE_NACK              = "MM_NACK";
+const MM_MESSAGE_TYPE_CONNECTED         = "MM_CONNECT";
 
 // Error messages
 const MM_ERR_NO_HANDLER                 = "No handler error";
@@ -59,6 +61,19 @@ class MessageManager {
     // Optional parameter for MessageManager
     _cm = null;
 
+    // Retry interval
+    _retryInterval = null;
+
+    // Flag indicating if the autoretry is enabled or not
+    _autoRetry = null;
+
+    //
+    // Callback definitions
+    //
+
+    // Max number of auto retries
+    _maxAutoRetries = null;
+
     // Handler to be called on a message received
     _on = null;
 
@@ -82,15 +97,6 @@ class MessageManager {
 
     // User defined callback to generate next message id
     _nextIdGenerator = null;
-
-    // Retry interval
-    _retryInterval = null;
-
-    // Flag indicating if the autoretry is enabled or not
-    _autoRetry = null;
-
-    // Max number of auto retries
-    _maxAutoRetries = null;
 
     // Data message class definition. Any message being sent by the user
     // is considered to be data message.
@@ -142,7 +148,7 @@ class MessageManager {
         function constructor(id, name, data, timeout, metadata) {
             payload = {
                 "id": id,
-                "type": MM_MESSAGE_NAME_DATA,
+                "type": MM_MESSAGE_TYPE_DATA,
                 "name": name,
                 "data": data,
                 "created": time()
@@ -221,6 +227,20 @@ class MessageManager {
     //
     // Returns:             MessageManager object created
     function constructor(config = null) {
+
+        // This is a really dirty hack to address the "no handler" error.
+        // We just give the partner some time to register its message handlers.
+        // The "no handler" error is raised by the server when a message is sent between
+        // agent and device and there is no callback registered for
+        // the specified message name on the other side.
+        // We have to do this workaround, because unfortunately until impOS natively
+        // supports the "partner connected" notifications that don't raise errors,
+        // there is no other way to properly handle this.
+        // We understand that this is an ugly hacky way to implement things but it helps in
+        // most of cases that we are aware of. And this is definitely not the approach we
+        // recommend anyone to follow.
+        imp.sleep(MM_START_UP_DELAY);
+
         if (!config) {
             config = {}
         }
@@ -234,10 +254,10 @@ class MessageManager {
 
         // Partner initialization
         _partner = _isAgent() ? device : agent;
-        _partner.on(MM_MESSAGE_NAME_ACK, _onAckReceived.bindenv(this));
-        _partner.on(MM_MESSAGE_NAME_DATA, _onDataReceived.bindenv(this));
-        _partner.on(MM_MESSAGE_NAME_NACK, _onNackReceived.bindenv(this));
-        _partner.on(MM_MESSAGE_NAME_REPLY, _onReplyReceived.bindenv(this));
+        _partner.on(MM_MESSAGE_TYPE_ACK, _onAckReceived.bindenv(this));
+        _partner.on(MM_MESSAGE_TYPE_DATA, _onDataReceived.bindenv(this));
+        _partner.on(MM_MESSAGE_TYPE_NACK, _onNackReceived.bindenv(this));
+        _partner.on(MM_MESSAGE_TYPE_REPLY, _onReplyReceived.bindenv(this));
 
         // Read configuration
         _cm              = "connectionManager" in config ? config["connectionManager"] : null;
@@ -566,7 +586,7 @@ class MessageManager {
     function _sendMessage(msg) {
         _log("Making attempt to send: " + msg.payload.data);
         local payload = msg.payload;
-        if (_isConnected() && !_partner.send(MM_MESSAGE_NAME_DATA, payload)) {
+        if (_isConnected() && !_partner.send(MM_MESSAGE_TYPE_DATA, payload)) {
             // The message was successfully sent
             // Update the sent time
             msg._sent = time();
@@ -664,7 +684,7 @@ class MessageManager {
                 handlerFound = true;
                 handler(payload, function/*reply*/(data = null) {
                     replied = true;
-                    error = _partner.send(MM_MESSAGE_NAME_REPLY, {
+                    error = _partner.send(MM_MESSAGE_TYPE_REPLY, {
                         "id"   : payload["id"],
                         "data" : data
                     });
@@ -674,14 +694,14 @@ class MessageManager {
 
         // If message was not replied, send the ACK
         if (!replied) {
-            error = _partner.send(MM_MESSAGE_NAME_ACK, {
+            error = _partner.send(MM_MESSAGE_TYPE_ACK, {
                 "id" : payload["id"]
             });
         }
 
         // No valid handler - send NACK
         if (!handlerFound) {
-            error = _partner.send(MM_MESSAGE_NAME_NACK, {
+            error = _partner.send(MM_MESSAGE_TYPE_NACK, {
                 "id" : payload["id"]
             });
         }
