@@ -6,6 +6,10 @@ The library is a successor of [Bullwinkle](https://github.com/electricimp/Bullwi
 **Please note:** the MessageManager is designed to run over reliable (i.e. TCP/TLS) connections. Retries only occur in the case
 of dropped connections or lost packets.
 
+The library uses [ConnectionManager](https://github.com/electricimp/ConnectionManager) on the device side 
+to get notified of the connected/disconnected events and also to get a better way to find out the actual 
+connection status (i.e. we are not trying to send messages when disconnected).
+
 ## API Overview
 - [MessageManager](#mmanager) - The core library - used to add/remove handlers, and send messages
     - [MessageManager.send](#mmanager_send) - Sends the data message
