@@ -20,6 +20,7 @@ class MessageManagerTestCase extends ImpTestCase {
     _numOfLocalTimeouts = null;
 
     _handlers = null;
+    _nextId = null;
 
     MyConnectionManager = class {
 
@@ -102,6 +103,8 @@ class MessageManagerTestCase extends ImpTestCase {
     function constructor() {
         _resetCounters();
 
+        _nextId = 0;
+
         _handlers = {};
         _handlers[MM_HANDLER_NAME_ON_ACK]     <- localOnAck.bindenv(this);
         _handlers[MM_HANDLER_NAME_ON_FAIL]    <- localOnFail.bindenv(this);
@@ -114,7 +117,11 @@ class MessageManagerTestCase extends ImpTestCase {
 
         local config = {
             "messageTimeout"    : 10,
-            "connectionManager" : _cm
+            "connectionManager" : _cm,
+            "nextIdGenerator"   : function () {
+                _nextId = (_nextId + 1) % RAND_MAX;
+                return _nextId;
+            }.bindenv(this)
         };
 
         _mm = MessageManager(config);

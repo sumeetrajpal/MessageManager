@@ -80,6 +80,9 @@ class MessageManager {
     // Global handler to be called when a message is replied
     _onReply = null;
 
+    // User defined callback to generate next message id
+    _nextIdGenerator = null;
+
     // Retry interval
     _retryInterval = null;
 
@@ -237,12 +240,13 @@ class MessageManager {
         _partner.on(MM_MESSAGE_NAME_REPLY, _onReplyReceived.bindenv(this));
 
         // Read configuration
-        _cm             = "connectionManager" in config ? config["connectionManager"] : null;
-        _debug          = "debug"             in config ? config["debug"]             : MM_DEFAULT_DEBUG;
-        _retryInterval  = "retryInterval"     in config ? config["retryInterval"]     : MM_DEFAULT_RETRY_INTERVAL;
-        _msgTimeout     = "messageTimeout"    in config ? config["messageTimeout"]    : MM_DEFAULT_MSG_TIMEOUT;
-        _autoRetry      = "autoRetry"         in config ? config["autoRetry"]         : MM_DEFAULT_AUTO_RETRY;
-        _maxAutoRetries = "maxAutoRetries"    in config ? config["maxAutoRetries"]    : MM_DEFAULT_MAX_AUTO_RETRIES;
+        _cm              = "connectionManager" in config ? config["connectionManager"] : null;
+        _nextIdGenerator = "nextIdGenerator"   in config ? config["nextIdGenerator"]   : null;
+        _debug           = "debug"             in config ? config["debug"]             : MM_DEFAULT_DEBUG;
+        _retryInterval   = "retryInterval"     in config ? config["retryInterval"]     : MM_DEFAULT_RETRY_INTERVAL;
+        _msgTimeout      = "messageTimeout"    in config ? config["messageTimeout"]    : MM_DEFAULT_MSG_TIMEOUT;
+        _autoRetry       = "autoRetry"         in config ? config["autoRetry"]         : MM_DEFAULT_AUTO_RETRY;
+        _maxAutoRetries  = "maxAutoRetries"    in config ? config["maxAutoRetries"]    : MM_DEFAULT_MAX_AUTO_RETRIES;
 
         if (_cm) {
             _cm.onConnect(_onConnect.bindenv(this));
@@ -782,7 +786,11 @@ class MessageManager {
     //
     // Returns:             Next message id
     function _getNextId() {
-        _nextId = (_nextId + 1) % RAND_MAX;
+        if (_isFunc(_nextIdGenerator)) {
+            _nextId = _nextIdGenerator();
+        } else {
+            _nextId = (_nextId + 1) % RAND_MAX;
+        }
         return _nextId;
     }
 
