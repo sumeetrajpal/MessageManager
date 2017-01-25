@@ -1,4 +1,4 @@
-# MessageManager Library 0.0.3 (Alpha)
+# MessageManager Library 0.0.4 (Alpha)
 
 MessageManager is framework for asynchronous bidirectional agent to device communication. 
 The library is a successor of [Bullwinkle](https://github.com/electricimp/Bullwinkle).
