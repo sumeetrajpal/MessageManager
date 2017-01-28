@@ -59,6 +59,8 @@ A table containing any of the following keys may be passed into the MessageManag
 | *maxAutoRetries* | Integer | 0 | Changes the default number of automatic retries to be peformed by the library. After this number is reached the message will be dropped. Please not the message will automatically be retried if there is when no [onFail](#mmanager_on_fail) handler registered by the user. |
 | *connectionManager* | [ConnectionManager](https://github.com/electricimp/ConnectionManager) | `null` | Optional instance of [ConnectionManager](https://github.com/electricimp/ConnectionManager) library that helps MessageManager to track the connectivity status. |
 | *nextIdGenerator* | Function | `null` | User-defined callback that generates the next message id. The function has no parameters. |
+| *onPartnerConnected* | Function | `null` | Sets the handler to be called when the partner is known to be connected. The handler's signature is: *handler(reply)*, where *reply(data)* is the callback to respond to the "connected" event. |
+| *onConnectedReply* | Function | `null` | Sets the handler to be called when the partner responds to the connected status. The handler's signature is: *handler(response)*, where *response* - is the replied data. |
 
 ###### Examples
 

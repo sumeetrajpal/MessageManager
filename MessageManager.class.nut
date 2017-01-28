@@ -11,7 +11,7 @@ const MM_DEFAULT_MAX_AUTO_RETRIES       = 0;
 
 // Other configuration constants
 const MM_QUEUE_CHECK_INTERVAL           = 0.5;  // sec
-const MM_START_UP_DELAY                 = 0.25; // sec
+const MM_START_UP_DELAY                 = 0.5;  // sec
 
 // Message types
 const MM_MESSAGE_TYPE_DATA              = "MM_DATA";
@@ -19,6 +19,7 @@ const MM_MESSAGE_TYPE_REPLY             = "MM_REPLY";
 const MM_MESSAGE_TYPE_ACK               = "MM_ACK";
 const MM_MESSAGE_TYPE_NACK              = "MM_NACK";
 const MM_MESSAGE_TYPE_CONNECTED         = "MM_CONNECT";
+const MM_MESSAGE_TYPE_CONNECTED_REPLY   = "MM_CONNECT_REPLY";
 
 // Error messages
 const MM_ERR_NO_HANDLER                 = "No handler error";
@@ -97,6 +98,12 @@ class MessageManager {
 
     // User defined callback to generate next message id
     _nextIdGenerator = null;
+
+    // Callback to be executed when a partner is connected
+    _onPartnerCon = null;
+
+    // Callback to be executed when a partner responds to the "connected" notification
+    _onConReply = null;
 
     // Data message class definition. Any message being sent by the user
     // is considered to be data message.
@@ -258,19 +265,26 @@ class MessageManager {
         _partner.on(MM_MESSAGE_TYPE_DATA, _onDataReceived.bindenv(this));
         _partner.on(MM_MESSAGE_TYPE_NACK, _onNackReceived.bindenv(this));
         _partner.on(MM_MESSAGE_TYPE_REPLY, _onReplyReceived.bindenv(this));
+        _partner.on(MM_MESSAGE_TYPE_CONNECTED, _onConReceived.bindenv(this));
+        _partner.on(MM_MESSAGE_TYPE_CONNECTED_REPLY, _onConReplyReceived.bindenv(this))
 
         // Read configuration
-        _cm              = "connectionManager" in config ? config["connectionManager"] : null;
-        _nextIdGenerator = "nextIdGenerator"   in config ? config["nextIdGenerator"]   : null;
-        _debug           = "debug"             in config ? config["debug"]             : MM_DEFAULT_DEBUG;
-        _retryInterval   = "retryInterval"     in config ? config["retryInterval"]     : MM_DEFAULT_RETRY_INTERVAL;
-        _msgTimeout      = "messageTimeout"    in config ? config["messageTimeout"]    : MM_DEFAULT_MSG_TIMEOUT;
-        _autoRetry       = "autoRetry"         in config ? config["autoRetry"]         : MM_DEFAULT_AUTO_RETRY;
-        _maxAutoRetries  = "maxAutoRetries"    in config ? config["maxAutoRetries"]    : MM_DEFAULT_MAX_AUTO_RETRIES;
+        _cm              = "connectionManager"  in config ? config["connectionManager"]  : null;
+        _nextIdGenerator = "nextIdGenerator"    in config ? config["nextIdGenerator"]    : null;
+        _onConReply      = "onConnectedReply"   in config ? config["onConnectedReply"]   : null;
+        _onPartnerCon    = "onPartnerConnected" in config ? config["onPartnerConnected"] : null;
+        _debug           = "debug"              in config ? config["debug"]              : MM_DEFAULT_DEBUG;
+        _retryInterval   = "retryInterval"      in config ? config["retryInterval"]      : MM_DEFAULT_RETRY_INTERVAL;
+        _msgTimeout      = "messageTimeout"     in config ? config["messageTimeout"]     : MM_DEFAULT_MSG_TIMEOUT;
+        _autoRetry       = "autoRetry"          in config ? config["autoRetry"]          : MM_DEFAULT_AUTO_RETRY;
+        _maxAutoRetries  = "maxAutoRetries"     in config ? config["maxAutoRetries"]     : MM_DEFAULT_MAX_AUTO_RETRIES;
 
         if (_cm) {
             _cm.onConnect(_onConnect.bindenv(this));
             _cm.onDisconnect(_onDisconnect.bindenv(this));
+
+            // Make sure we are connected and the onConnect callback is triggered
+            _cm.connect();
         }
     }
 
@@ -480,6 +494,7 @@ class MessageManager {
     // Returns:             Nothing
     function _onConnect() {
         _processRetryQueue();
+        _partner.send(MM_MESSAGE_TYPE_CONNECTED, null);
     }
 
     // On disconnect handler
@@ -797,6 +812,42 @@ class MessageManager {
             _isFunc(_onReply) && _onReply(msg, payload["data"]);
 
             delete _sentQueue[id];
+        }
+    }
+
+    // Handler to be called on connected notification received
+    //
+    // Parameters:
+    //      payload         The payload message received
+    //
+    // Returns:             Nothing
+    function _onConReceived(payload) {
+        // Call the onPartnerConnected handler
+        if (_isFunc(_onPartnerCon)) {
+            _onPartnerCon(
+                function/*reply*/(data = null) {
+                    _partner.send(MM_MESSAGE_TYPE_CONNECTED_REPLY, {
+                            "data" : data
+                        }
+                    );
+                }.bindenv(this)
+            );
+        }
+
+        // Now process the retry queue
+        _processRetryQueue();
+    }
+
+    // Handler to be called on receiving the connection reply from the partner
+    //
+    // Parameters:
+    //      payload         The payload received
+    //
+    // Returns:             Nothing
+    function _onConReplyReceived(payload) {
+        // Call the onPartnerConnectedResponse handler
+        if (_isFunc(_onConReply)) {
+            _onConReply("data" in payload ? payload["data"] : null);
         }
     }
 

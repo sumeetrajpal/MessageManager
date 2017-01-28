@@ -1,8 +1,7 @@
 {
-    "apiKey": "",
-    "modelId": "" /* */,
+    "modelId": "pSrGKzgpqPO6" /* A */,
     "devices": [
-        "" /* */
+        "23236c6938a609ee" /* B */
     ],
     "agentFile": "tests/agent.nut",
     "deviceFile": "MessageManager.class.nut",
