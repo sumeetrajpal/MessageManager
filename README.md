@@ -45,11 +45,7 @@ to be send over the air and meta-information used to control the message lifecyc
 <div id="mmanager"><h4>Constructor: MessageManager(<i>[options]</i>)</h4></div>
 
 Calling the MessageManager constructor creates a new MessageManager instance. An optional 
-table can be passed into the constructor (as *options*) to override default behaviours.
-
-<div id="mmanager_options"><h5>options</h5></div>
-
-This is a table containing any of the following keys may be passed into the MessageManager constructor to modify the default behavior:
+table can be passed into the constructor (as *options*) to override default behaviours. *options* can contain any of the following keys:
 
 | Key | Data Type | Default Value | Description |
 | ----- | -------------- | ------------------ | --------------- |
