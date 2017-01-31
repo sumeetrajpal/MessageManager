@@ -6,7 +6,7 @@ class BasicTestCase extends ImpTestCase {
 
     static MESSAGE_NAME = "test";
     static TOTAL_OFFLINE_MESSAGE_COUNT = 10;
-    static TOTAL_ONLINE_MESSAGE_COUNT = 100;
+    static TOTAL_ONLINE_MESSAGE_COUNT  = 10;
 
     _cm = null;
     _mm = null;
@@ -204,14 +204,12 @@ class BasicTestCase extends ImpTestCase {
         return Promise(function(resolve, reject) {
             imp.wakeup(5, function() {
 
-                assertEqual(0, _numOfFails, "fails");
-                assertEqual(0, _numOfTimeouts, "timeouts");
-                assertEqual(0, _numOfBeforeRetries, "beforeRetries");
-                assertEqual(TOTAL_ONLINE_MESSAGE_COUNT, _numOfReplies, "replies");
-                assertEqual(TOTAL_ONLINE_MESSAGE_COUNT, _numOfBeforeSends, "beforeSends");
-
-                // If both handlers are defined, the number of acks should be equal to the number of replies
-                assertEqual(_numOfReplies, _numOfAcks, "acks == replies");
+                assertEqual(0, _numOfFails, "num of fails");
+                assertEqual(0, _numOfTimeouts, "num of timeouts");
+                assertEqual(0, _numOfBeforeRetries, "num of beforeRetries");
+                assertEqual(TOTAL_ONLINE_MESSAGE_COUNT, _numOfAcks, "num of acks");
+                assertEqual(TOTAL_ONLINE_MESSAGE_COUNT, _numOfReplies, "num of replies");
+                assertEqual(TOTAL_ONLINE_MESSAGE_COUNT, _numOfBeforeSends, "num of beforeSends");
 
                 // Message local handlers should be called the same number of times as the global ones
                 assertEqual(_numOfAcks, _numOfLocalAcks, "acks == localAcks");

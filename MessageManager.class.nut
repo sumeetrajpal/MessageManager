@@ -8,6 +8,7 @@ const MM_DEFAULT_MSG_TIMEOUT            = 10;   // sec
 const MM_DEFAULT_RETRY_INTERVAL         = 10;   // sec
 const MM_DEFAULT_AUTO_RETRY             = 0;
 const MM_DEFAULT_MAX_AUTO_RETRIES       = 0;
+const MM_DEFAULT_MAX_MESSAGE_RATE       = 10;   // max 10 messages per second
 
 // Other configuration constants
 const MM_QUEUE_CHECK_INTERVAL           = 0.5;  // sec
@@ -26,6 +27,7 @@ const MM_ERR_NO_HANDLER                 = "No handler error";
 const MM_ERR_NO_CONNECTION              = "No connection error";
 const MM_ERR_USER_DROPPED_MESSAGE       = "User dropped the message";
 const MM_ERR_USER_CALLED_FAIL           = "User called fail";
+const MM_ERR_RATE_LIMIT_EXCEEDED        = "Maximum sending rate exceeded";
 
 // Message names for handlers
 const MM_HANDLER_NAME_ON_ACK            = "onAck";
@@ -67,6 +69,19 @@ class MessageManager {
 
     // Flag indicating if the autoretry is enabled or not
     _autoRetry = null;
+
+    //
+    // Rate measurement variables
+    //
+
+    // Max message send rate (messages per second)
+    _maxRate = null;
+
+    // Message sent counter for rate measurement
+    _rateCounter = null;
+
+    // Last time the message send rate was measured
+    _lastRateMeasured = null;
 
     //
     // Callback definitions
@@ -255,6 +270,8 @@ class MessageManager {
         _nextId = 0;
         _sentQueue  = {};
         _retryQueue = {};
+        _rateCounter = 0;
+        _lastRateMeasured = 0;
 
         // Handlers
         _on = {};
@@ -278,6 +295,7 @@ class MessageManager {
         _msgTimeout      = "messageTimeout"     in config ? config["messageTimeout"]     : MM_DEFAULT_MSG_TIMEOUT;
         _autoRetry       = "autoRetry"          in config ? config["autoRetry"]          : MM_DEFAULT_AUTO_RETRY;
         _maxAutoRetries  = "maxAutoRetries"     in config ? config["maxAutoRetries"]     : MM_DEFAULT_MAX_AUTO_RETRIES;
+        _maxRate         = "maxMessageRate"     in config ? config["maxMessageRage"]     : MM_DEFAULT_MAX_MESSAGE_RATE;
 
         if (_cm) {
             _cm.onConnect(_onConnect.bindenv(this));
@@ -449,6 +467,19 @@ class MessageManager {
         return _sentQueue.len() + _retryQueue.len();
     }
 
+    // Returns the current value of the "monotonic" millisecond timer.
+    //
+    // NOTE: the timer can overflow!!!
+    // The primary purpose is rate measurements, where the above
+    // limitation is not critical.
+    //
+    // Parameters:
+    //
+    // Returns:             The current value of the monotonic
+    function _monotonicMillis() {
+        return _isAgent() ? time() * 1000 + date().usec / 1000 : hardware.millis();
+    }
+
     // Enqueues the message
     //
     // Parameters:
@@ -599,9 +630,31 @@ class MessageManager {
     //
     // Returns:             Nothing
     function _sendMessage(msg) {
-        _log("Making attempt to send: " + msg.payload.data);
+        _log("Trying to send: " + msg.payload.data);
+
+        if (!_isConnected()) {
+            // Not connected, just raise the error
+            _callOnFail(msg, MM_ERR_NO_CONNECTION);
+            return;
+        }
+
+        local now = _monotonicMillis();
+        if (now - 1000 > _lastRateMeasured || now < _lastRateMeasured) {
+            // Resent the counters, if the timer's overflowen or
+            // more than a second passed from the last measurement
+            _rateCounter = 0;
+            _lastRateMeasured = now;
+        } else if (_rateCounter >= _maxRate) {
+            // Rate limit exeeded, raise the error
+            _callOnFail(msg, MM_ERR_RATE_LIMIT_EXCEEDED);
+            return;
+        }
+
         local payload = msg.payload;
-        if (_isConnected() && !_partner.send(MM_MESSAGE_TYPE_DATA, payload)) {
+        if (!_partner.send(MM_MESSAGE_TYPE_DATA, payload)) {
+            // Message was successfully sent, increment the timer
+            _rateCounter++;
+
             // The message was successfully sent
             // Update the sent time
             msg._sent = time();
@@ -609,9 +662,7 @@ class MessageManager {
             // Make sure the timer is running
             _setTimer();
         } else {
-            _log("Oops, no connection");
-            // Presumably there is a connectivity issue, 
-            // enqueue for further retry
+            // Connectivity issue
             _callOnFail(msg, MM_ERR_NO_CONNECTION);
         }
     }
