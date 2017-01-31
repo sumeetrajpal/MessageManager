@@ -127,10 +127,10 @@ Sets the callback which will be called *before* a message is sent. The callback 
 | Parameter | Description |
 | --- | --- |
 | *message* | An instance of [DataMessage](#mmanager_data_message) to be sent |
-| *enqueue* | An optional function with no parameters which appends the message to the retry queue for later processing |
-| *drop* | An optional function which disposes of the message. It takes a single, optional parameter, *silently*, which defaults to `true` and which governs whether the disposal takes place silently or through the *onFail* callbacks |
+| *enqueue* | A function with no parameters which appends the message to the retry queue for later processing |
+| *drop* | A function which disposes of the message. It takes a single, optional parameter, *silently*, which defaults to `true` and which governs whether the disposal takes place silently or through the *onFail* callbacks |
 
-The *enqueue* and *drop* functions must be called synchronously.
+The *enqueue* and *drop* functions must be called synchronously, if they are called at all.
 
 ```squirrel
 mm.beforeSend(
@@ -153,10 +153,10 @@ Sets the callback for retry operations. It will be called before the library att
 | Parameter | Description |
 | --- | --- |
 | *message* | An instance of [DataMessage](#mmanager_data_message) to be re-sent |
-| *skip* | An optional function with a single parameter, *duration*, which postpones the retry attempt and leaves the message in the retry queue for the specified amount of time. If *duration* is not specified, it defaults to the *retryInterval* provided for *MessageManager* [constructor](#mmanager) |
-| *drop* | An optional function which disposes of the message. It takes a single, optional parameter, *silently*, which defaults to `true` and which governs whether the disposal takes place silently or through the *onFail* callbacks |
+| *skip* | A function with a single parameter, *duration*, which postpones the retry attempt and leaves the message in the retry queue for the specified amount of time. If *duration* is not specified, it defaults to the *retryInterval* provided for *MessageManager* [constructor](#mmanager) |
+| *drop* | A function which disposes of the message. It takes a single, optional parameter, *silently*, which defaults to `true` and which governs whether the disposal takes place silently or through the *onFail* callbacks |
 
-The *skip* and *drop* functions must be called synchronously.
+The *skip* and *drop* functions must be called synchronously, if they are called at all.
  
 ```squirrel
 mm.beforeRetry(
@@ -180,7 +180,7 @@ Sets the callack to be called when a message error occurs. The callback has the 
 | --- | --- |
 | *message* | An instance of [DataMessage](#mmanager_data_message) that caused the error |
 | *reason* | The error description string |
-| *retry* | An optional function that can be invoked to retry sending the message in a specified period of time. This function must be called synchronously. It takes one parameter, *interval*. If there is no *interval* parameter specified, the *retryInterval* value provided for *MessageManager* [constructor](#mmanager) is used. If the function is not called, the message will expire |
+| *retry* | A function that can be invoked to retry sending the message in a specified period of time. This function must be called synchronously, if it is called at all. It takes one parameter, *interval*. If there is no *interval* parameter specified, the *retryInterval* value provided for *MessageManager* [constructor](#mmanager) is used. If the function is not called, the message will expire |
 
 ```squirrel
 mm.onFail(
@@ -198,10 +198,10 @@ Sets the callback to be called when a message timeout occurs. The callback has t
 | Parameter | Description |
 | --- | --- |
 | *message* | An instance of [DataMessage](#mmanager_data_message) that caused the timeout |
-| *wait* | An optional function which resets the acknowledgement timeout for the message, which means the message will not raise a timeout error for the interval of time specified by the function’s *interval* parameter. This function must be called synchronously |
+| *wait* | A function which resets the acknowledgement timeout for the message, which means the message will not raise a timeout error for the interval of time specified by the function’s *interval* parameter. This function must be called synchronously |
 | *fail* | A function which makes the message fall through the *onFail* callbacks |
 
-If no *wait* or *fail* callbacks are provided, the message will expire.
+If neither *wait* nor *fail* are called, the message will expire.
  
 ```squirrel
 mm.onTimeout(
