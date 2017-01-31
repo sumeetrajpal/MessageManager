@@ -3,12 +3,13 @@
 MessageManager is framework for asynchronous bidirectional agent to device communication. 
 The library is a successor of [Bullwinkle](https://github.com/electricimp/Bullwinkle).
 
-**Please note:** the MessageManager is designed to run over reliable (i.e. TCP/TLS) connections. Retries only occur in the case
-of dropped connections or lost packets.
-
 The library uses [ConnectionManager](https://github.com/electricimp/ConnectionManager) on the device side 
 to get notified of the connected/disconnected events and also to get a better way to find out the actual 
 connection status (i.e. we are not trying to send messages when disconnected).
+
+**Please note:** the MessageManager is designed to run over reliable (i.e. TCP/TLS) connections.
+Retries only occur in the case of dropped connections or lost packets or if called manually from
+[beforeSend](#mmanager_before_send) or [beforeRetry](#mmanager_before_retry).
 
 ## API Overview
 - [MessageManager](#mmanager) - The core library - used to add/remove handlers, and send messages
