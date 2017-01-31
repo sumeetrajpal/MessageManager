@@ -7,6 +7,8 @@ The library uses [ConnectionManager](https://github.com/electricimp/ConnectionMa
 to get notified of the connected/disconnected events and also to get a better way to find out the actual 
 connection status (i.e. we are not trying to send messages when disconnected).
 
+**To add this library to your project, add** `#require "messagemanager.class.nut:0.9.0"` **to the top of your agent and device code.**
+
 **Please note:** the MessageManager is designed to run over reliable (i.e. TCP/TLS) connections.
 Retries only occur in the case of dropped connections or lost packets or if called manually from
 [beforeSend](#mmanager_before_send) or [beforeRetry](#mmanager_before_retry).
