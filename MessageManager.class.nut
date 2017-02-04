@@ -793,10 +793,8 @@ class MessageManager {
             _isFunc(msg._onAck) && msg._onAck(msg);
             _isFunc(_onAck) && _onAck(msg);
 
-            // Delete the acked message from the queue if there is no _onReply handler set (either global or message-specific)
-            if (!_isFunc(msg._onReply) && !_isFunc(_onReply)) {
-                delete _sentQueue[id]
-            }
+            // Delete the acked message from the queue
+            delete _sentQueue[id];
         }
     }
 
