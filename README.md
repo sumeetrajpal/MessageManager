@@ -128,7 +128,7 @@ Sets the callback which will be called *before* a message is sent. The callback 
 | --- | --- |
 | *message* | An instance of [DataMessage](#mmanager_data_message) to be sent |
 | *enqueue* | A function with no parameters which appends the message to the retry queue for later processing |
-| *drop* | A function which disposes of the message. It takes a single, optional parameter, *silently*, which defaults to `true` and which governs whether the disposal takes place silently or through the *onFail* callbacks |
+| *drop* | A function which disposes of the message. It takes two optional parameters: *silently*, which defaults to `true` and which governs whether the disposal takes place silently or through the *onFail* callbacks and *error* which if *silently* is `false`, specifies the error message to be provided to the *onFail* handler |
 
 The *enqueue* and *drop* functions must be called synchronously, if they are called at all.
 
@@ -154,7 +154,7 @@ Sets the callback for retry operations. It will be called before the library att
 | --- | --- |
 | *message* | An instance of [DataMessage](#mmanager_data_message) to be re-sent |
 | *skip* | A function with a single parameter, *duration*, which postpones the retry attempt and leaves the message in the retry queue for the specified amount of time. If *duration* is not specified, it defaults to the *retryInterval* provided for *MessageManager* [constructor](#mmanager) |
-| *drop* | A function which disposes of the message. It takes a single, optional parameter, *silently*, which defaults to `true` and which governs whether the disposal takes place silently or through the *onFail* callbacks |
+| *drop* | A function which disposes of the message. It takes two optional parameters: *silently*, which defaults to `true` and which governs whether the disposal takes place silently or through the *onFail* callbacks and *error* which if *silently* is `false`, specifies the error message to be provided to the *onFail* handler |
 
 The *skip* and *drop* functions must be called synchronously, if they are called at all.
  

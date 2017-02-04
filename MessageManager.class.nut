@@ -9,7 +9,7 @@ const MM_DEFAULT_RETRY_INTERVAL         = 10;   // sec
 const MM_DEFAULT_AUTO_RETRY             = 0;
 const MM_DEFAULT_MAX_AUTO_RETRIES       = 0;
 const MM_DEFAULT_MAX_MESSAGE_RATE       = 10;   // max 10 messages per second
-const MM_DEFAULT_FIRST_MESSAGE_ID       = 0
+const MM_DEFAULT_FIRST_MESSAGE_ID       = 0;
 
 // Other configuration constants
 const MM_QUEUE_CHECK_INTERVAL           = 0.5;  // sec
@@ -307,7 +307,7 @@ class MessageManager {
         }
 
         // Set _nextId based on configuration
-        _nextId = ("firstMessageID" in config ? config["firstMessageID"] : MM_DEFAULT_FIRST_MESSAGE_ID)
+        _nextId = ("firstMessageID" in config ? config["firstMessageID"] : MM_DEFAULT_FIRST_MESSAGE_ID);
     }
 
     // Sends data message
@@ -719,7 +719,7 @@ class MessageManager {
                 function/*drop*/(silently = true, error = null) {
                     send = false
                     if (!silently) {
-                        _callOnFail(msg, (error == null ? MM_ERR_USER_DROPPED_MESSAGE : error))
+                        _callOnFail(msg, (error == null ? MM_ERR_USER_DROPPED_MESSAGE : error));
                     }
                 }
             )
@@ -755,7 +755,7 @@ class MessageManager {
                         "id"   : payload["id"],
                         "data" : data
                     });
-                }.bindenv(this));
+                });
             }
         }
 
