@@ -6,7 +6,7 @@ The library is the successor to [Bullwinkle](https://github.com/electricimp/Bull
 The library uses [ConnectionManager](https://github.com/electricimp/ConnectionManager) on the device side 
 to receive notifications of connection and disconnection events, and to monitor connection status (ie. so that no attempt it made to send messages when the device is disconnected).
 
-**To add this library to your project, add** `#require "messagemanager.class.nut:0.9.0"` **to the top of your agent and device code.**
+**To add this library to your project, add** `#require "messagemanager.class.nut:0.9.1"` **to the top of your agent and device code.**
 
 **Note** MessageManager is designed to run over reliable (ie. TCP/TLS) connections. Retries only occur in the case of dropped connections or lost packets, or if called manually from [beforeSend()](#mmanager_before_send) or [beforeRetry()](#mmanager_before_retry).
 
@@ -128,7 +128,7 @@ Sets the callback which will be called *before* a message is sent. The callback 
 | --- | --- |
 | *message* | An instance of [DataMessage](#mmanager_data_message) to be sent |
 | *enqueue* | A function with no parameters which appends the message to the retry queue for later processing |
-| *drop* | A function which disposes of the message. It takes a single, optional parameter, *silently*, which defaults to `true` and which governs whether the disposal takes place silently or through the *onFail* callbacks |
+| *drop* | A function which disposes of the message. It takes two optional parameters: *silently*, which defaults to `true` and which governs whether the disposal takes place silently or through the *onFail* callbacks and *error* which if *silently* is `false`, specifies the error message to be provided to the *onFail* handler |
 
 The *enqueue* and *drop* functions must be called synchronously, if they are called at all.
 
@@ -154,7 +154,7 @@ Sets the callback for retry operations. It will be called before the library att
 | --- | --- |
 | *message* | An instance of [DataMessage](#mmanager_data_message) to be re-sent |
 | *skip* | A function with a single parameter, *duration*, which postpones the retry attempt and leaves the message in the retry queue for the specified amount of time. If *duration* is not specified, it defaults to the *retryInterval* provided for *MessageManager* [constructor](#mmanager) |
-| *drop* | A function which disposes of the message. It takes a single, optional parameter, *silently*, which defaults to `true` and which governs whether the disposal takes place silently or through the *onFail* callbacks |
+| *drop* | A function which disposes of the message. It takes two optional parameters: *silently*, which defaults to `true` and which governs whether the disposal takes place silently or through the *onFail* callbacks and *error* which if *silently* is `false`, specifies the error message to be provided to the *onFail* handler |
 
 The *skip* and *drop* functions must be called synchronously, if they are called at all.
  
@@ -290,7 +290,7 @@ Sets a message-local version of the [MessageManager.onReply()](#mmanager_on_repl
 // Device code
 
 #require "ConnectionManager.class.nut:1.0.2"
-#require "MessageManager.class.nut:0.9.0"
+#require "MessageManager.class.nut:0.9.1"
 
 local cm = ConnectionManager({
     "blinkupBehavior": ConnectionManager.BLINK_ALWAYS,
@@ -333,7 +333,7 @@ sendData();
 ```squirrel
 // Agent code
 
-#require "MessageManager.class.nut:0.9.0"
+#require "MessageManager.class.nut:0.9.1"
 
 local mm = MessageManager();
 
