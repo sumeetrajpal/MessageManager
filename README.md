@@ -59,6 +59,7 @@ table can be passed into the constructor (as *options*) to override default beha
 | *onPartnerConnected* | Function | `null` | Sets the handler to be called when the partner is known to be connected. The handler’s signature is: *handler(reply)*, where *reply(data)* is the callback to respond to the “connected” event |
 | *onConnectedReply* | Function | `null` | Sets the handler to be called when the partner responds to the connected status. The handler’s signature is: *handler(response)*, where *response* is the response data |
 | *maxMessageRate* | Integer | 10 | Maximum message send rate, which defines the maximum number of messages the library  allows to send per second. If application exceeds the limit, the *onFail* handler is called.<br/>**Note** please don’t change the value unless absolutely necessary. |
+| *firstMessageId* | Integer | 0 | Initial value for the auto-incrementing message id |
 
 ##### Examples
 

@@ -296,6 +296,7 @@ class MessageManager {
         _autoRetry       = "autoRetry"          in config ? config["autoRetry"]          : MM_DEFAULT_AUTO_RETRY;
         _maxAutoRetries  = "maxAutoRetries"     in config ? config["maxAutoRetries"]     : MM_DEFAULT_MAX_AUTO_RETRIES;
         _maxRate         = "maxMessageRate"     in config ? config["maxMessageRage"]     : MM_DEFAULT_MAX_MESSAGE_RATE;
+        _nextId          = "firstMessageId"     in config ? config["firstMessageId"]     : MM_DEFAULT_FIRST_MESSAGE_ID);
 
         if (_cm) {
             _cm.onConnect(_onConnect.bindenv(this));
@@ -304,9 +305,6 @@ class MessageManager {
             // Make sure we are connected and the onConnect callback is triggered
             _cm.connect();
         }
-
-        // Set _nextId based on configuration
-        _nextId = ("firstMessageID" in config ? config["firstMessageID"] : MM_DEFAULT_FIRST_MESSAGE_ID);
     }
 
     // Sends data message
