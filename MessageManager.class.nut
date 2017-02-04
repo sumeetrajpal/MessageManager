@@ -297,7 +297,6 @@ class MessageManager {
         _maxAutoRetries  = "maxAutoRetries"     in config ? config["maxAutoRetries"]     : MM_DEFAULT_MAX_AUTO_RETRIES;
         _maxRate         = "maxMessageRate"     in config ? config["maxMessageRage"]     : MM_DEFAULT_MAX_MESSAGE_RATE;
 
-
         if (_cm) {
             _cm.onConnect(_onConnect.bindenv(this));
             _cm.onDisconnect(_onDisconnect.bindenv(this));
