@@ -1,10 +1,8 @@
 # MessageManager
 
-MessageManager is framework for asynchronous bidirectional agent to device communication. 
-The library is the successor to [Bullwinkle](https://github.com/electricimp/Bullwinkle).
+MessageManager is framework for asynchronous bidirectional agent to device communication. The library is the successor to [Bullwinkle](https://github.com/electricimp/Bullwinkle).
 
-The library uses [ConnectionManager](https://github.com/electricimp/ConnectionManager) on the device side 
-to receive notifications of connection and disconnection events, and to monitor connection status (ie. so that no attempt it made to send messages when the device is disconnected).
+The library uses [ConnectionManager](https://github.com/electricimp/ConnectionManager) on the device side to receive notifications of connection and disconnection events, and to monitor connection status (ie. so that no attempt it made to send messages when the device is disconnected).
 
 **To add this library to your project, add** `#require "messagemanager.class.nut:1.0.0"` **to the top of your agent and device code.**
 
@@ -53,13 +51,13 @@ table can be passed into the constructor (as *options*) to override default beha
 | *retryInterval* | Integer | 0 | Changes the default timeout parameter passed to the [retry](#mmanager_retry) method |
 | *messageTimeout* | Integer | 10 | Changes the default timeout required before a message is considered failed (to be acknowledged or replied to) |
 | *autoRetry* | Boolean | `false` | If set to `true`, MessageManager will automatically continue to retry sending a message until *maxAutoRetries* has been reached when no [onFail()](#mmanager_on_fail) callback is supplied. Please note that if *maxAutoRetries* is set to 0, *autoRetry* will have no limit to the number of times it will retry |
-| *maxAutoRetries* | Integer | 0 | Changes the default number of automatic retries to be peformed by the library. After this number is reached the message will be dropped. Please note that the message will automatically be retried if there is when no [onFail()](#mmanager_on_fail) handler registered by the user |
+| *maxAutoRetries* | Integer | 0 | Changes the default number of automatic retries to be peformed by the library. After this number is reached the message will be dropped. Please note that the message will automatically be retried if there is no [onFail()](#mmanager_on_fail) handler registered by the user |
 | *connectionManager* | [ConnectionManager](https://github.com/electricimp/ConnectionManager) | `null` | Optional instance of the [ConnectionManager](https://github.com/electricimp/ConnectionManager) library that helps MessageManager to track the connectivity status |
 | *nextIdGenerator* | Function | `null` | User-defined callback that generates the next message ID. The function has no parameters |
 | *onPartnerConnected* | Function | `null` | Sets the handler to be called when the partner is known to be connected. The handler’s signature is: *handler(reply)*, where *reply(data)* is the callback to respond to the “connected” event |
 | *onConnectedReply* | Function | `null` | Sets the handler to be called when the partner responds to the connected status. The handler’s signature is: *handler(response)*, where *response* is the response data |
 | *maxMessageRate* | Integer | 10 | Maximum message send rate, which defines the maximum number of messages the library  allows to send per second. If application exceeds the limit, the *onFail* handler is called.<br/>**Note** please don’t change the value unless absolutely necessary. |
-| *firstMessageId* | Integer | 0 | Initial value for the auto-incrementing message id |
+| *firstMessageId* | Integer | 0 | Initial value for the auto-incrementing message ID |
 
 ##### Examples
 
