@@ -9,6 +9,7 @@ const MM_DEFAULT_RETRY_INTERVAL         = 10;   // sec
 const MM_DEFAULT_AUTO_RETRY             = 0;
 const MM_DEFAULT_MAX_AUTO_RETRIES       = 0;
 const MM_DEFAULT_MAX_MESSAGE_RATE       = 10;   // max 10 messages per second
+const MM_DEFAULT_FIRST_MESSAGE_ID       = 0;
 
 // Other configuration constants
 const MM_QUEUE_CHECK_INTERVAL           = 0.5;  // sec
@@ -37,7 +38,7 @@ const MM_HANDLER_NAME_ON_TIMEOUT        = "onTimeout";
 
 class MessageManager {
 
-    static VERSION = "0.9.0";
+    static VERSION = "1.0.0";
 
     // Queue of messages that are pending for acknowledgement
     _sentQueue = null;
@@ -49,7 +50,7 @@ class MessageManager {
     _nextId = null;
 
     // The device or agent object
-    _partner = null;  
+    _partner = null;
 
     // Timer for checking the queues
     _queueTimer = null;
@@ -60,7 +61,7 @@ class MessageManager {
     // The flag indicating that the debug mode enabled
     _debug = null;
 
-    // ConnectionManager instance (for device only). 
+    // ConnectionManager instance (for device only).
     // Optional parameter for MessageManager
     _cm = null;
 
@@ -125,7 +126,7 @@ class MessageManager {
     //
     // The class defines the data message structure and handlers.
     DataMessage = class {
-        
+
         // Message payload to be sent
         payload = null;
 
@@ -267,7 +268,6 @@ class MessageManager {
             config = {}
         }
 
-        _nextId = 0;
         _sentQueue  = {};
         _retryQueue = {};
         _rateCounter = 0;
@@ -296,6 +296,7 @@ class MessageManager {
         _autoRetry       = "autoRetry"          in config ? config["autoRetry"]          : MM_DEFAULT_AUTO_RETRY;
         _maxAutoRetries  = "maxAutoRetries"     in config ? config["maxAutoRetries"]     : MM_DEFAULT_MAX_AUTO_RETRIES;
         _maxRate         = "maxMessageRate"     in config ? config["maxMessageRage"]     : MM_DEFAULT_MAX_MESSAGE_RATE;
+        _nextId          = "firstMessageId"     in config ? config["firstMessageId"]     : MM_DEFAULT_FIRST_MESSAGE_ID);
 
         if (_cm) {
             _cm.onConnect(_onConnect.bindenv(this));
@@ -355,19 +356,18 @@ class MessageManager {
     //
     // Parameters:
     //      handler         The handler to be called before send. The handler's signature:
-    //                          handler(message, enqueue, dispose), where
-    //                              message         The message to be sent
-    //                              enqueue()       Callback which when called
-    //                                              makes the message appended to the
-    //                                              retry queue for later processing
-    //                                              enqueue() has no arguments
-    //                              drop(silently)  Callback which when called drops the message.
-    //                                              drop() has a `silently` parameter which if set to false
-    //                                              makes the MessageManager.onFail and
-    //                                              MessageManager.DataMessage.onFail handlers to be called if
-    //                                              any of those are registered.
-    //                                              Otherwise, if `silently` is not specified or is set to true,
-    //                                              calling to drop() results in a silent message disposal.
+    //                          handler(message, enqueue, drop), where
+    //                              message                          The message to be sent
+    //                              enqueue()                        Callback which when called
+    //                                                               makes the message appended to the
+    //                                                               retry queue for later processing
+    //                                                               enqueue() has no arguments
+    //
+    //                              drop(silently, error)            Callback which when called
+    //                                                               drops the message
+    //                                                               drop() has two optional arguments
+    //                                                                 - silently - boolean (default: true)  - if true, the onFail handlers (MessageManager.onFail and MessageManager.DataMessage.onFail) do not get called
+    //                                                                 - error    - string  (default: null)  - if `silently` is false, this error is provided to the onFail handler
     //
     // Returns:             Nothing
     function beforeSend(handler) {
@@ -380,18 +380,16 @@ class MessageManager {
     //
     // Parameters:
     //      handler         The handler to be called before retry. The handler's signature:
-    //                          handler(message, dispose), where
-    //                              message         The message to be retried
-    //                              skip(duration)  The callback which when called postpones the retry
-    //                                              attempt and leaves the message
-    //                                              in the retry queue for the specified amount of time.
-    //                              drop(silently)  Callback which when called drops the message.
-    //                                              drop() has a `silently` parameter which if set to false
-    //                                              makes the MessageManager.onFail and
-    //                                              MessageManager.DataMessage.onFail handlers to be called if
-    //                                              any of those are registered.
-    //                                              Otherwise, if `silently` is not specified or is set to true,
-    //                                              calling to drop() results in a silent message disposal.
+    //                          handler(message, skip, drop), where
+    //                              message                          The message that was replied to
+    //                              skip(duration)                   The callback which when called postpones the retry
+    //                                                               attempt and leaves the message
+    //                                                               in the retry queue for the specified amount of time.
+    //                              drop(silently, error)            Callback which when called
+    //                                                               drops the message
+    //                                                               drop() has two optional arguments
+    //                                                                 - silently - boolean (default: true)  - if true, the onFail handlers (MessageManager.onFail and MessageManager.DataMessage.onFail) do not get called
+    //                                                                 - error    - string  (default: null)  - if `silently` is false, this error is provided to the onFail handler
     //
     // Returns:             Nothing
     function beforeRetry(handler) {
@@ -494,18 +492,18 @@ class MessageManager {
 
     // Returns true if the code is running on the agent side, false otherwise
     //
-    // Parameters:    
+    // Parameters:
     //
     // Returns:             true for agent and false for device
     function _isAgent() {
         return imp.environment() == ENVIRONMENT_AGENT;
-    }   
+    }
 
     // Returns true if the imp and the agent are connected, false otherwise
     //
-    // Parameters:    
+    // Parameters:
     //
-    // Returns:             true if imp and agent are 
+    // Returns:             true if imp and agent are
     //                      connected, false otherwise
     function _isConnected() {
         local connected = false;
@@ -544,7 +542,7 @@ class MessageManager {
     // The sent and reply queues processor
     // Handles timeouts, does resent, etc.
     //
-    // Parameters:    
+    // Parameters:
     //
     // Returns:             Nothing
     function _processQueues() {
@@ -603,7 +601,7 @@ class MessageManager {
     // The sent and reply queues processor
     // Handles timeouts, tries, etc.
     //
-    // Parameters:    
+    // Parameters:
     //
     // Returns:             Nothing
     function _setTimer() {
@@ -617,7 +615,7 @@ class MessageManager {
 
     // Returns true if the argument is function and false otherwise
     //
-    // Parameters:    
+    // Parameters:
     //
     // Returns:             true if the argument is function and false otherwise
     function _isFunc(f) {
@@ -684,12 +682,12 @@ class MessageManager {
                     msg._nextRetry = time() + (duration ? duration : _retryInterval);
                     send = false;
                 }.bindenv(this),
-                function/*drop*/(silently = true) {
+                function/*drop*/(silently = true, error = null) {
                     // User requests to dispose the message, so drop it on the floor
                     delete _retryQueue[payload["id"]];
                     send = false;
                     if (!silently) {
-                        _callOnFail(msg, MM_ERR_USER_DROPPED_MESSAGE);
+                        _callOnFail(msg, (error == null ? MM_ERR_USER_DROPPED_MESSAGE : error));
                     }
                 }.bindenv(this)
             )
@@ -715,10 +713,10 @@ class MessageManager {
                     _enqueue(msg)
                     send = false
                 },
-                function/*drop*/(silently = true) {
+                function/*drop*/(silently = true, error = null) {
                     send = false
                     if (!silently) {
-                        _callOnFail(msg, MM_ERR_USER_DROPPED_MESSAGE)
+                        _callOnFail(msg, (error == null ? MM_ERR_USER_DROPPED_MESSAGE : error));
                     }
                 }
             )
@@ -904,7 +902,7 @@ class MessageManager {
 
     // Incremental message id generator
     //
-    // Parameters:          
+    // Parameters:
     //
     // Returns:             Next message id
     function _getNextId() {
@@ -916,11 +914,11 @@ class MessageManager {
         return _nextId;
     }
 
-    // Implements debug logging. Sends the log message 
+    // Implements debug logging. Sends the log message
     // to the console output if "debug" configuration
     // flag is set
     //
-    // Parameters:          
+    // Parameters:
     //
     // Returns:             Nothing
     function _log(message) {

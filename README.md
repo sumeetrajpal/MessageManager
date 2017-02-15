@@ -1,12 +1,10 @@
 # MessageManager
 
-MessageManager is framework for asynchronous bidirectional agent to device communication. 
-The library is the successor to [Bullwinkle](https://github.com/electricimp/Bullwinkle).
+MessageManager is framework for asynchronous bidirectional agent to device communication. The library is the successor to [Bullwinkle](https://github.com/electricimp/Bullwinkle).
 
-The library uses [ConnectionManager](https://github.com/electricimp/ConnectionManager) on the device side 
-to receive notifications of connection and disconnection events, and to monitor connection status (ie. so that no attempt it made to send messages when the device is disconnected).
+The library uses [ConnectionManager](https://github.com/electricimp/ConnectionManager) on the device side to receive notifications of connection and disconnection events, and to monitor connection status (ie. so that no attempt it made to send messages when the device is disconnected).
 
-**To add this library to your project, add** `#require "messagemanager.class.nut:0.9.0"` **to the top of your agent and device code.**
+**To add this library to your project, add** `#require "messagemanager.class.nut:1.0.0"` **to the top of your agent and device code.**
 
 **Note** MessageManager is designed to run over reliable (ie. TCP/TLS) connections. Retries only occur in the case of dropped connections or lost packets, or if called manually from [beforeSend()](#mmanager_before_send) or [beforeRetry()](#mmanager_before_retry).
 
@@ -53,12 +51,13 @@ table can be passed into the constructor (as *options*) to override default beha
 | *retryInterval* | Integer | 0 | Changes the default timeout parameter passed to the [retry](#mmanager_retry) method |
 | *messageTimeout* | Integer | 10 | Changes the default timeout required before a message is considered failed (to be acknowledged or replied to) |
 | *autoRetry* | Boolean | `false` | If set to `true`, MessageManager will automatically continue to retry sending a message until *maxAutoRetries* has been reached when no [onFail()](#mmanager_on_fail) callback is supplied. Please note that if *maxAutoRetries* is set to 0, *autoRetry* will have no limit to the number of times it will retry |
-| *maxAutoRetries* | Integer | 0 | Changes the default number of automatic retries to be peformed by the library. After this number is reached the message will be dropped. Please note that the message will automatically be retried if there is when no [onFail()](#mmanager_on_fail) handler registered by the user |
+| *maxAutoRetries* | Integer | 0 | Changes the default number of automatic retries to be peformed by the library. After this number is reached the message will be dropped. Please note that the message will automatically be retried if there is no [onFail()](#mmanager_on_fail) handler registered by the user |
 | *connectionManager* | [ConnectionManager](https://github.com/electricimp/ConnectionManager) | `null` | Optional instance of the [ConnectionManager](https://github.com/electricimp/ConnectionManager) library that helps MessageManager to track the connectivity status |
 | *nextIdGenerator* | Function | `null` | User-defined callback that generates the next message ID. The function has no parameters |
 | *onPartnerConnected* | Function | `null` | Sets the handler to be called when the partner is known to be connected. The handler’s signature is: *handler(reply)*, where *reply(data)* is the callback to respond to the “connected” event |
 | *onConnectedReply* | Function | `null` | Sets the handler to be called when the partner responds to the connected status. The handler’s signature is: *handler(response)*, where *response* is the response data |
 | *maxMessageRate* | Integer | 10 | Maximum message send rate, which defines the maximum number of messages the library  allows to send per second. If application exceeds the limit, the *onFail* handler is called.<br/>**Note** please don’t change the value unless absolutely necessary. |
+| *firstMessageId* | Integer | 0 | Initial value for the auto-incrementing message ID |
 
 ##### Examples
 
@@ -128,7 +127,7 @@ Sets the callback which will be called *before* a message is sent. The callback 
 | --- | --- |
 | *message* | An instance of [DataMessage](#mmanager_data_message) to be sent |
 | *enqueue* | A function with no parameters which appends the message to the retry queue for later processing |
-| *drop* | A function which disposes of the message. It takes a single, optional parameter, *silently*, which defaults to `true` and which governs whether the disposal takes place silently or through the *onFail* callbacks |
+| *drop* | A function which disposes of the message. It takes two optional parameters: *silently*, which defaults to `true` and which governs whether the disposal takes place silently or through the *onFail* callbacks, and *error* which if *silently* is `false`, specifies the error message to be provided to the *onFail* callback |
 
 The *enqueue* and *drop* functions must be called synchronously, if they are called at all.
 
@@ -154,7 +153,7 @@ Sets the callback for retry operations. It will be called before the library att
 | --- | --- |
 | *message* | An instance of [DataMessage](#mmanager_data_message) to be re-sent |
 | *skip* | A function with a single parameter, *duration*, which postpones the retry attempt and leaves the message in the retry queue for the specified amount of time. If *duration* is not specified, it defaults to the *retryInterval* provided for *MessageManager* [constructor](#mmanager) |
-| *drop* | A function which disposes of the message. It takes a single, optional parameter, *silently*, which defaults to `true` and which governs whether the disposal takes place silently or through the *onFail* callbacks |
+| *drop* | A function which disposes of the message. It takes two optional parameters: *silently*, which defaults to `true` and which governs whether the disposal takes place silently or through the *onFail* callbacks, and *error* which if *silently* is `false`, specifies the error message to be provided to the *onFail* callback |
 
 The *skip* and *drop* functions must be called synchronously, if they are called at all.
  
@@ -290,7 +289,7 @@ Sets a message-local version of the [MessageManager.onReply()](#mmanager_on_repl
 // Device code
 
 #require "ConnectionManager.class.nut:1.0.2"
-#require "MessageManager.class.nut:0.9.0"
+#require "MessageManager.class.nut:1.0.0"
 
 local cm = ConnectionManager({
     "blinkupBehavior": ConnectionManager.BLINK_ALWAYS,
@@ -333,7 +332,7 @@ sendData();
 ```squirrel
 // Agent code
 
-#require "MessageManager.class.nut:0.9.0"
+#require "MessageManager.class.nut:1.0.0"
 
 local mm = MessageManager();
 
