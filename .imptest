@@ -1,7 +1,7 @@
 {
     "modelId": "pSrGKzgpqPO6" /* A */,
     "devices": [
-        "23236c6938a609ee" /* B */
+        "20000c2a690a2944" /* C */
     ],
     "agentFile": "tests/agent.nut",
     "deviceFile": "MessageManager.class.nut",
