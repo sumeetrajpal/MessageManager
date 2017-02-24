@@ -296,7 +296,7 @@ class MessageManager {
         _autoRetry       = "autoRetry"          in config ? config["autoRetry"]          : MM_DEFAULT_AUTO_RETRY;
         _maxAutoRetries  = "maxAutoRetries"     in config ? config["maxAutoRetries"]     : MM_DEFAULT_MAX_AUTO_RETRIES;
         _maxRate         = "maxMessageRate"     in config ? config["maxMessageRage"]     : MM_DEFAULT_MAX_MESSAGE_RATE;
-        _nextId          = "firstMessageId"     in config ? config["firstMessageId"]     : MM_DEFAULT_FIRST_MESSAGE_ID);
+        _nextId          = "firstMessageId"     in config ? config["firstMessageId"]     : MM_DEFAULT_FIRST_MESSAGE_ID;
 
         if (_cm) {
             _cm.onConnect(_onConnect.bindenv(this));
