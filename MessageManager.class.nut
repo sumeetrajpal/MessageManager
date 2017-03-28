@@ -38,7 +38,7 @@ const MM_HANDLER_NAME_ON_TIMEOUT        = "onTimeout";
 
 class MessageManager {
 
-    static VERSION = "1.0.1";
+    static VERSION = "1.0.2";
 
     // Queue of messages that are pending for acknowledgement
     _sentQueue = null;
@@ -295,7 +295,7 @@ class MessageManager {
         _msgTimeout      = "messageTimeout"     in config ? config["messageTimeout"]     : MM_DEFAULT_MSG_TIMEOUT;
         _autoRetry       = "autoRetry"          in config ? config["autoRetry"]          : MM_DEFAULT_AUTO_RETRY;
         _maxAutoRetries  = "maxAutoRetries"     in config ? config["maxAutoRetries"]     : MM_DEFAULT_MAX_AUTO_RETRIES;
-        _maxRate         = "maxMessageRate"     in config ? config["maxMessageRage"]     : MM_DEFAULT_MAX_MESSAGE_RATE;
+        _maxRate         = "maxMessageRate"     in config ? config["maxMessageRate"]     : MM_DEFAULT_MAX_MESSAGE_RATE;
         _nextId          = "firstMessageId"     in config ? config["firstMessageId"]     : MM_DEFAULT_FIRST_MESSAGE_ID;
 
         if (_cm) {

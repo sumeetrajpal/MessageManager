@@ -64,7 +64,8 @@ class ConnectTestCase extends ImpTestCase {
         local config = {
             "connectionManager"  : _cm,
             "onConnectedReply"   : onConnectedReply.bindenv(this),
-            "onPartnerConnected" : onPartnerConnected.bindenv(this)
+            "onPartnerConnected" : onPartnerConnected.bindenv(this),
+            "maxMessageRate"     : 20
         };
 
         _mm = MessageManager(config);

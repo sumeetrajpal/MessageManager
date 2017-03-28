@@ -4,12 +4,14 @@
 
 class ThrottlingDeviceTestCase extends ImpTestCase {
 
-    static MESSAGE_NAME = "test";
+    static MESSAGE_NAME        = "test";
+    static MAX_RATE_LIMIT      = 10;
+    static RETRY_INTERVAL_SEC  = 1;
     static TOTAL_MESSAGES_SENT = 20;
 
     _mm = null;
     _numOfAcks = null;
-    _numOfRateLimits = null;
+    _numOfFailures = null;
 
     function onAck(msg) {
         _numOfAcks++;
@@ -17,7 +19,7 @@ class ThrottlingDeviceTestCase extends ImpTestCase {
 
     function onFail(msg, error, retry) {
         if (error == "Maximum sending rate exceeded") {
-            _numOfRateLimits++;    
+            _numOfFailures++;
         }
         retry();
     }
@@ -30,7 +32,8 @@ class ThrottlingDeviceTestCase extends ImpTestCase {
         _resetCounters();
 
         local config = {
-            "retryInterval" : 1 // sec
+            "maxMessageRate" : MAX_RATE_LIMIT,
+            "retryInterval"  : RETRY_INTERVAL_SEC
         };
 
         _mm = MessageManager(config);
@@ -40,7 +43,7 @@ class ThrottlingDeviceTestCase extends ImpTestCase {
 
     function _resetCounters() {
         _numOfAcks = 0;
-        _numOfRateLimits = 0;
+        _numOfFailures = 0;
     }
 
     function testConnected() {
@@ -54,8 +57,9 @@ class ThrottlingDeviceTestCase extends ImpTestCase {
 
         return Promise(function(resolve, reject) {
             imp.wakeup(3, function() {
-                assertEqual(10, _numOfRateLimits, "Number of rate limits");
-                assertEqual(TOTAL_MESSAGES_SENT, _numOfAcks, "Number of ACKs");
+                assertEqual(TOTAL_MESSAGES_SENT - MAX_RATE_LIMIT, _numOfFailures, "Number of rate limits: " + _numOfFailures);
+                // assertTrue(_numOfFailures >= TOTAL_MESSAGES_SENT - MAX_RATE_LIMIT, "Number of rate limits: " + _numOfFailures);
+                assertEqual(TOTAL_MESSAGES_SENT, _numOfAcks, "Number of ACKs: " + _numOfAcks);
                 resolve();
             }.bindenv(this));
         }.bindenv(this));
