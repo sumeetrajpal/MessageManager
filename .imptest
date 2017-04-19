@@ -4,7 +4,7 @@
         "2370797838a609ee" /* E */
     ],
     "agentFile": "tests/agent.nut",
-    "deviceFile": "MessageManager.class.nut",
+    "deviceFile": "MessageManager.lib.nut",
     "stopOnFailure": false,
     "timeout": 30,
     "tests": [

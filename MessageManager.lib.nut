@@ -522,6 +522,7 @@ class MessageManager {
     //
     // Returns:             Nothing
     function _onConnect() {
+        server.log((_isAgent()? "[A]: ": "[D]: ") +"YYY")
         _processRetryQueue();
         _partner.send(MM_MESSAGE_TYPE_CONNECTED, null);
     }
@@ -871,6 +872,7 @@ class MessageManager {
     //
     // Returns:             Nothing
     function _onConReceived(payload) {
+        server.log((_isAgent()? "[A]: ": "[D]: ") +"XXX")
         // Call the onPartnerConnected handler
         if (_isFunc(_onPartnerCon)) {
             _onPartnerCon(
