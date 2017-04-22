@@ -59,7 +59,7 @@ const MM_HANDLER_NAME_ON_TIMEOUT        = "onTimeout";
 
 class MessageManager {
 
-    static VERSION = "1.0.2";
+    static VERSION = "2.0.0";
 
     // Queue of messages that are pending for acknowledgement
     _sentQueue = null;
