@@ -1,6 +1,27 @@
-// Copyright (c) 2016-2017 Electric Imp
-// This file is licensed under the MIT License
-// http://opensource.org/licenses/MIT
+// MIT License
+//
+// Copyright 2016-2017 Electric Imp
+//
+// SPDX-License-Identifier: MIT
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be
+// included in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+// EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO
+// EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES
+// OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+// ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+// OTHER DEALINGS IN THE SOFTWARE.
+
 
 // Default configuration values
 const MM_DEFAULT_DEBUG                  = 0;
@@ -157,6 +178,9 @@ class MessageManager {
         // Handler to be called when the message is replied
         _onReply = null;
 
+        // Flag indicating that the message was acknowledged
+        _acked = null;
+
         // Data message constructor
         // Constructor is not going to be called from the user code
         //
@@ -177,6 +201,7 @@ class MessageManager {
                 "created": time()
             };
             this.tries = 0;
+            this._acked = false;
             this.metadata = metadata;
             this._timeout = timeout;
             this._nextRetry = 0;
@@ -549,16 +574,16 @@ class MessageManager {
         // Clean up the timer
         _queueTimer = null;
 
-        local t     = time();
+        local now   = time();
         local drop  = true;
 
         // Process timed out messages from the sent (waiting for ack) queue
         foreach (id, msg in _sentQueue) {
             local timeout = msg._timeout ? msg._timeout : _msgTimeout;
-            if (t - msg._sent > timeout) {
+            if (now - msg._sent > timeout) {
                 local wait = function(duration = null) {
                     local delay = duration != null ? duration : timeout;
-                    msg._timeout = t - msg._sent + delay;
+                    msg._timeout = now - msg._sent + delay;
                     drop = false;
                 }.bindenv(this);
 
@@ -566,8 +591,10 @@ class MessageManager {
                     _callOnFail(msg, MM_ERR_USER_CALLED_FAIL);
                 }.bindenv(this);
 
-                _isFunc(msg._onTimeout) && msg._onTimeout(msg, wait, fail);
-                _isFunc(_onTimeout) && _onTimeout(msg, wait, fail);
+                if (!msg._acked) {
+                    _isFunc(msg._onTimeout) && msg._onTimeout(msg, wait, fail);
+                    _isFunc(_onTimeout) && _onTimeout(msg, wait, fail);
+                }
 
                 if (drop) {
                     delete _sentQueue[id];
@@ -589,10 +616,10 @@ class MessageManager {
     //
     // Returns:             Nothing
     function _processRetryQueue() {
-        local t = time();
+        local now = time();
         // Process retry message queue
         foreach (id, msg in _retryQueue) {
-            if (t >= msg._nextRetry) {
+            if (now >= msg._nextRetry) {
                 _retry(msg);
             }
         }
@@ -790,8 +817,12 @@ class MessageManager {
             _isFunc(msg._onAck) && msg._onAck(msg);
             _isFunc(_onAck) && _onAck(msg);
 
-            // Delete the acked message from the queue
-            delete _sentQueue[id];
+            // Delete the acked message from the queue if there is no _onReply handler set (either global or message-specific)
+            if (!_isFunc(msg._onReply) && !_isFunc(_onReply)) {
+                delete _sentQueue[id]
+            } else {
+                msg._acked = true;
+            }
         }
     }
 
