@@ -327,8 +327,11 @@ class MessageManager {
             _cm.onConnect(_onConnect.bindenv(this));
             _cm.onDisconnect(_onDisconnect.bindenv(this));
 
-            // Make sure we are connected and the onConnect callback is triggered
-            _cm.connect();
+            // On device side make sure we are connected and the
+            // onConnect callback is triggered to notify the agent
+            if (!_isAgent()) {
+                _cm.connect();
+            }
         }
     }
 

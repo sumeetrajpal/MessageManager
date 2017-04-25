@@ -1,21 +1,75 @@
-// Copyright (c) 2017 Electric Imp
-// This file is licensed under the MIT License
-// http://opensource.org/licenses/MIT
+// MIT License
+//
+// Copyright 2016-2017 Electric Imp
+//
+// SPDX-License-Identifier: MIT
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be
+// included in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+// EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO
+// EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES
+// OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+// ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+// OTHER DEALINGS IN THE SOFTWARE.
 
-device.on("MM_DATA", function(payload) {
-    device.send("MM_REPLY", {
-        "id" : payload["id"],
-        "data" : payload["data"]
-    });
-});
+@include "https://raw.githubusercontent.com/electricimp/ConnectionManager/master/ConnectionManager.class.nut"
+@include "MessageManager.lib.nut"
 
-device.on("MM_CONNECT", function(payload) {
-    sendConnected();
-    device.send("MM_CONNECT_REPLY", {
-        "data" : "No messages"
-    });
-})
+class MyConnectionManager {
+    _connected = null;
+    _onConnect = null;
+    _onDisconnect = null;
 
-function sendConnected() {
-    device.send("MM_CONNECT", null);
+    function constructor() {
+        _connected = true;
+    }
+
+    function isConnected() {
+        return _connected;
+    }
+
+    function disconnect() {
+        this._connected = false;
+        _isFunc(_onDisconnect) && _onDisconnect(true);
+    }
+
+    function connect() {
+        server.log("  [AGT] connected");
+        this._connected = true;
+        _isFunc(_onConnect) && _onConnect();
+    }
+
+    function onDisconnect(handler) {
+        _onDisconnect = handler;
+    }
+
+    function onConnect(handler) {
+        _onConnect = handler;
+    }
+
+    function _isFunc(f) {
+        return f && typeof f == "function";
+    }
 }
+
+local cm = MyConnectionManager()
+function onPartnerConnected(reply) {
+    cm.connect();
+    reply("No messages");
+}
+local config = {
+    "onPartnerConnected" : onPartnerConnected.bindenv(this),
+    "connectionManager"  : cm
+};
+local mm = MessageManager(config);
+mm.on("test", @(data, reply) reply(data));

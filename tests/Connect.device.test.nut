@@ -77,9 +77,6 @@ class ConnectTestCase extends ImpTestCase {
     }
 
     function setUp() {
-        // agent.on("MM_CONNECT", function(payload) {
-        // });
-
         _cm = MyConnectionManager();
 
         local config = {
@@ -95,8 +92,8 @@ class ConnectTestCase extends ImpTestCase {
     function testConnected() {
         return Promise(function(resolve, reject) {
             imp.wakeup(1, function() {
-                assertTrue(_partnerConnected, "Partner connected");
-                assertEqual(_onConnectedReply, "No messages", "Connected reply");
+                assertTrue(_partnerConnected, "Partner connected: " + _partnerConnected);
+                assertEqual("No messages", _onConnectedReply, "Connected reply");
                 resolve();
             }.bindenv(this));
         }.bindenv(this));
